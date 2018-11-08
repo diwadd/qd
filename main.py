@@ -163,7 +163,7 @@ def split_the_numpy_drawings_into_test_train_evaluate_datasets():
     logger.debug("x_test: {0}".format(x_test))
     logger.debug("y_test: {0}".format(y_test))
 
-
+    return x_train, y_train
 
 if __name__ == "__main__":
     print("Starting...")
@@ -178,6 +178,10 @@ if __name__ == "__main__":
     logger.info("x.shape: {0}".format(x.shape))
 
     sn = SimpleCNN(input_shape=(REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE), n_classes=3)
+
+    x_train_file_list, y_train_file_list = split_the_numpy_drawings_into_test_train_evaluate_datasets()
+
+    sn.fit(1000, x_train_file_list, y_train_file_list)
 
     p = sn.predict(x)
     print(p)
