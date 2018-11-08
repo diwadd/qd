@@ -13,6 +13,8 @@ from sklearn.model_selection import train_test_split
 from custom_logger import logger
 import support_functions as sf
 
+from base_model import SimpleCNN
+
 MAIN_SEED = 0
 SIMPLIFIED_DATA_IMAGE_SIZE = 256
 REDUCED_DATA_IMAGE_SIZE = 28
@@ -162,13 +164,25 @@ def split_the_numpy_drawings_into_test_train_evaluate_datasets():
     logger.debug("y_test: {0}".format(y_test))
 
 
+
 if __name__ == "__main__":
     print("Starting...")
 
     ndjson_file_list = get_data_files()
+    npy_drawing_files = get_numpy_drawings_list()
 
+    x_1 = np.load(npy_drawing_files[0]).reshape((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, 1))
+    x_2 = np.load(npy_drawing_files[1]).reshape((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, 1))
+
+    x = np.concatenate((x_1, x_2), axis=0)
+    logger.info("x.shape: {0}".format(x.shape))
+
+    sn = SimpleCNN(input_shape=(REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE), n_classes=3)
+
+    p = sn.predict(x)
+    print(p)
     # split_the_numpy_drawings_into_test_train_evaluate_datasets()
 
     # Open each ndjson file, convert the drawings in it into numpy arrays
     # and save them a *.npy files for further processing.
-    convert_ndjson_simplified_data_into_numpy_arrays(ndjson_file_list)
+    # convert_ndjson_simplified_data_into_numpy_arrays(ndjson_file_list)
