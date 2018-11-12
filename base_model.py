@@ -76,16 +76,16 @@ class SimpleCNN(BaseModel):
 
     def _generate_data_from_files(self,
                                   x_train_file_list,
-                                  y_train_file_list,
+                                  y_train_labels_list,
                                   batch_size):
 
         n_x = len(x_train_file_list)
-        n_y = len(y_train_file_list)
+        n_y = len(y_train_labels_list)
 
         assert n_x == n_y, "x and y dimensions do not match!"
         assert batch_size <= n_x, "Batch size is greater than x_train_file_list!"
 
-        x_y_train = [(x_train_file_list[i], y_train_file_list[i]) for i in range(n_x)]
+        x_y_train = [(x_train_file_list[i], y_train_labels_list[i]) for i in range(n_x)]
 
         while True:
 
@@ -101,6 +101,9 @@ class SimpleCNN(BaseModel):
 
                 x = np.load(file).reshape((self.n_rows, self.n_cols, self.n_channels))
 
+                # It would be good to extract the label from "file" and compare
+                # it with y_val but for performance reasons we avoid this.
+
                 batch_x[i, :, :, :] = x
                 batch_y[i, y_val] = 1.0
 
@@ -109,7 +112,7 @@ class SimpleCNN(BaseModel):
             yield batch_x, batch_y
 
 
-    def fit(self, batch_size, x_train_file_list, y_train_file_list):
+    def fit(self, batch_size, x_train_file_list, y_train_labels_list):
         # self.model.fit(x_train, y_train,
         #           batch_size=batch_size,
         #           epochs=epochs,
@@ -117,7 +120,7 @@ class SimpleCNN(BaseModel):
         #           validation_data=(x_test, y_test))
 
         self.model.fit_generator(self._generate_data_from_files(x_train_file_list,
-                                                                y_train_file_list,
+                                                                y_train_labels_list,
                                                                 batch_size),
                                  samples_per_epoch=10,
                                  nb_epoch=3)
@@ -130,4 +133,5 @@ class SimpleCNN(BaseModel):
 
     def eval(self, x_test, y_test):
         score = self.model.evaluate(x_test, y_test, verbose=0)
+        logger.info("Your model scored: {0}".format(score))
         return score

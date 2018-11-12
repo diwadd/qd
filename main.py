@@ -18,6 +18,7 @@ from base_model import SimpleCNN
 MAIN_SEED = 0
 SIMPLIFIED_DATA_IMAGE_SIZE = 256
 REDUCED_DATA_IMAGE_SIZE = 28
+NUMBER_IMAGE_OF_CHANNELS = 1
 
 NPY_FILE_REXEXP = re.compile(r"data/class_(?P<drawing_name>.*)_\d+x\d+_id_\d+.npy")
 
@@ -25,7 +26,8 @@ random.seed(MAIN_SEED)
 
 def get_data_files():
     data_files = glob.glob("data/*ndjson")
-    return data_files
+    number_of_classes = len(data_files)
+    return data_files, number_of_classes
 
 def get_numpy_drawings_list():
     numpy_drawings_list = glob.glob("data/*.npy")
@@ -164,7 +166,7 @@ def split_the_numpy_drawings_into_test_train_evaluate_datasets():
     logger.debug("x_test: {0}".format(x_test))
     logger.debug("y_test: {0}".format(y_test))
 
-    return x_train, y_train, le
+    return x_train, y_train, x_test, y_test, le
 
 def predict_single_image(npy_drawing_file, model, le):
     logger.info(" --- --- --- --- --- --- --- --- --- --- ")
@@ -189,11 +191,50 @@ def predict_single_image(npy_drawing_file, model, le):
     plt.show()
     logger.info(" --- --- --- --- --- --- --- --- --- --- ")
 
+def read_npy_drawing_file_lists_and_return_data_array(x_npy_drawing_file_list,
+                                                      y_npy_drawing_labels_list,
+                                                      le,
+                                                      number_of_classes):
+
+    """
+    This function is used mainly to prepare the data for the evaulate/predict
+    methods of the model.
+
+    """
+    logger.info("Reading data from *npy files and packing them into one big numpy array.")
+
+    n_x = len(x_npy_drawing_file_list)
+    n_y = len(y_npy_drawing_labels_list)
+
+    assert n_x == n_y, "x and y dimensions do not match!"
+
+    x_drawings = np.zeros((n_x, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, NUMBER_IMAGE_OF_CHANNELS))
+    y_labels = np.zeros((n_y, number_of_classes))
+
+    for i in range(n_x):
+        x = np.load(x_npy_drawing_file_list[i]).reshape((REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, NUMBER_IMAGE_OF_CHANNELS))
+
+        rm = NPY_FILE_REXEXP.match(x_npy_drawing_file_list[i])
+        assert rm, "Regexp not matched!"
+        l = rm.group("drawing_name")
+
+        label = le.transform([l])
+        logger.debug("label: {0}, expected label: {1}".format(label, y_npy_drawing_labels_list[i]))
+
+        assert label == y_npy_drawing_labels_list[i], "Labels do not match!"
+
+        x_drawings[i, :, :, :] = x
+        y_labels[i, y_npy_drawing_labels_list[i]] = 1.0
+
+    return x_drawings, y_labels
 
 if __name__ == "__main__":
     print("Starting...")
 
-    ndjson_file_list = get_data_files()
+    ndjson_file_list, number_of_classes = get_data_files()
+    logger.info("Number of classes: {0}".format(number_of_classes))
+
+
     npy_drawing_files = get_numpy_drawings_list()
 
     x_1 = np.load(npy_drawing_files[0]).reshape((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, 1))
@@ -203,11 +244,11 @@ if __name__ == "__main__":
     x=x_1
     logger.info("x.shape: {0}".format(x.shape))
 
-    sn = SimpleCNN(input_shape=(REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE), n_classes=3)
+    sn = SimpleCNN(input_shape=(REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE), n_classes=number_of_classes)
 
-    x_train_file_list, y_train_file_list, le = split_the_numpy_drawings_into_test_train_evaluate_datasets()
+    x_train_file_list, y_train_labels_list, x_test_file_list, y_test_labels_list, le = split_the_numpy_drawings_into_test_train_evaluate_datasets()
 
-    sn.fit(10, x_train_file_list, y_train_file_list)
+    sn.fit(10, x_train_file_list, y_train_labels_list)
 
     p = sn.predict(x)
     print(p)
@@ -215,6 +256,13 @@ if __name__ == "__main__":
     predict_single_image(npy_drawing_files[0], sn, le)
     predict_single_image(npy_drawing_files[1], sn, le)
     predict_single_image(npy_drawing_files[2], sn, le)
+
+    x_drawings, y_labels = read_npy_drawing_file_lists_and_return_data_array(x_test_file_list,
+                                                                             y_test_labels_list,
+                                                                             le,
+                                                                             number_of_classes)
+
+    sn.eval(x_drawings, y_labels)
 
     # split_the_numpy_drawings_into_test_train_evaluate_datasets()
 
