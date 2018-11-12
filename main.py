@@ -19,6 +19,8 @@ MAIN_SEED = 0
 SIMPLIFIED_DATA_IMAGE_SIZE = 256
 REDUCED_DATA_IMAGE_SIZE = 28
 
+NPY_FILE_REXEXP = re.compile(r"data/class_(?P<drawing_name>.*)_\d+x\d+_id_\d+.npy")
+
 random.seed(MAIN_SEED)
 
 def get_data_files():
@@ -102,13 +104,12 @@ def convert_ndjson_simplified_data_into_numpy_arrays(ndjson_file_list):
 
 def get_labels(numpy_drawings_list):
 
-    rc = re.compile(r"data/class_(?P<drawing_name>.*)_\d+x\d+_id_\d+.npy")
     n = len(numpy_drawings_list)
 
     count_labels = {}
     labels = [None for i in range(n)]
     for i in range(n):
-            rm = rc.match(numpy_drawings_list[i])
+            rm = NPY_FILE_REXEXP.match(numpy_drawings_list[i])
             assert rm, "Regexp not matched!"
 
             l = rm.group("drawing_name")
@@ -163,7 +164,31 @@ def split_the_numpy_drawings_into_test_train_evaluate_datasets():
     logger.debug("x_test: {0}".format(x_test))
     logger.debug("y_test: {0}".format(y_test))
 
-    return x_train, y_train
+    return x_train, y_train, le
+
+def predict_single_image(npy_drawing_file, model, le):
+    logger.info(" --- --- --- --- --- --- --- --- --- --- ")
+    logger.info("Making a prediction for: {0}".format(npy_drawing_file))
+
+    rm = NPY_FILE_REXEXP.match(npy_drawing_file)
+    assert rm, "Regexp not matched!"
+    l = rm.group("drawing_name")
+    logger.info("We have a: {0}".format(l))
+
+    x = np.load(npy_drawing_file).reshape((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, 1))
+    p = model.predict(x)
+    logger.info("Model prediction p: {0}".format(p))
+
+    p_max = np.unravel_index(np.argmax(p[0], axis=None), p[0].shape)
+
+    logger.info("p has maximum at: {0}".format(p_max))
+    p_label = le.inverse_transform(p_max)
+    logger.info("The model predicted: {0}".format(p_label))
+
+    plt.matshow(x.reshape((REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE)))
+    plt.show()
+    logger.info(" --- --- --- --- --- --- --- --- --- --- ")
+
 
 if __name__ == "__main__":
     print("Starting...")
@@ -172,19 +197,25 @@ if __name__ == "__main__":
     npy_drawing_files = get_numpy_drawings_list()
 
     x_1 = np.load(npy_drawing_files[0]).reshape((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, 1))
-    x_2 = np.load(npy_drawing_files[1]).reshape((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, 1))
+    #x_2 = np.load(npy_drawing_files[1]).reshape((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, 1))
 
-    x = np.concatenate((x_1, x_2), axis=0)
+    #x = np.concatenate((x_1, x_2), axis=0)
+    x=x_1
     logger.info("x.shape: {0}".format(x.shape))
 
     sn = SimpleCNN(input_shape=(REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE), n_classes=3)
 
-    x_train_file_list, y_train_file_list = split_the_numpy_drawings_into_test_train_evaluate_datasets()
+    x_train_file_list, y_train_file_list, le = split_the_numpy_drawings_into_test_train_evaluate_datasets()
 
-    sn.fit(1000, x_train_file_list, y_train_file_list)
+    sn.fit(10, x_train_file_list, y_train_file_list)
 
     p = sn.predict(x)
     print(p)
+
+    predict_single_image(npy_drawing_files[0], sn, le)
+    predict_single_image(npy_drawing_files[1], sn, le)
+    predict_single_image(npy_drawing_files[2], sn, le)
+
     # split_the_numpy_drawings_into_test_train_evaluate_datasets()
 
     # Open each ndjson file, convert the drawings in it into numpy arrays

@@ -15,7 +15,7 @@ from custom_logger import logger
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
-config.log_device_placement = True
+config.log_device_placement = False
 sess = tf.Session(config=config)
 set_session(sess)
 
@@ -119,8 +119,8 @@ class SimpleCNN(BaseModel):
         self.model.fit_generator(self._generate_data_from_files(x_train_file_list,
                                                                 y_train_file_list,
                                                                 batch_size),
-                                 samples_per_epoch=50,
-                                 nb_epoch=10)
+                                 samples_per_epoch=10,
+                                 nb_epoch=3)
 
 
     def predict(self, x):
