@@ -168,6 +168,7 @@ class SimpleCNN(BaseModel):
              y_test_labels_list,
              batch_size,
              steps):
+
         # score = self.model.evaluate(x_test, y_test, verbose=0)
         # logger.info("Your model scored: {0}".format(score))
         # return score
