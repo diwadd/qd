@@ -1,6 +1,7 @@
 import re
 import glob
 import random
+import math
 
 import ndjson
 import numpy as np
@@ -29,8 +30,12 @@ def get_data_files():
     number_of_classes = len(data_files)
     return data_files, number_of_classes
 
-def get_numpy_drawings_list():
+def get_numpy_drawings_list(reduced_set=None):
     numpy_drawings_list = glob.glob("data/*.npy")
+
+    if reduced_set is not None:
+        numpy_drawings_list = numpy_drawings_list[1:reduced_set]
+
     return numpy_drawings_list
 
 def convert_ndjson_image_to_numpy_array(ndjson_drawing):
@@ -129,9 +134,9 @@ def get_labels(numpy_drawings_list):
 
     return labels
 
-def split_the_numpy_drawings_into_test_train_evaluate_datasets():
+def split_the_numpy_drawings_into_test_train_evaluate_datasets(reduced_set=None):
 
-    numpy_drawings_list = get_numpy_drawings_list()
+    numpy_drawings_list = get_numpy_drawings_list(reduced_set=reduced_set)
     logger.debug("numpy_drawings_list length: {0}".format(len(numpy_drawings_list)))
     logger.debug("Before shuffle")
     logger.debug(numpy_drawings_list)
@@ -157,14 +162,16 @@ def split_the_numpy_drawings_into_test_train_evaluate_datasets():
 
     x_train, x_test, y_train, y_test = train_test_split(numpy_drawings_list,
                                                         labels,
-                                                        test_size=0.33,
+                                                        test_size=0.2,
                                                         random_state=MAIN_SEED)
 
-    logger.debug("x_train: {0}".format(x_train))
-    logger.debug("y_train: {0}".format(y_train))
+    logger.info(" --- Size of split data --- ")
+    logger.info("x_train length: {0}".format(len(x_train)))
+    logger.info("y_train length: {0}".format(len(y_train)))
 
-    logger.debug("x_test: {0}".format(x_test))
-    logger.debug("y_test: {0}".format(y_test))
+    logger.info("x_test length: {0}".format(len(x_test)))
+    logger.info("y_test length: {0}".format(len(y_test)))
+    logger.info(" ---                    --- ")
 
     return x_train, y_train, x_test, y_test, le
 
@@ -235,7 +242,7 @@ if __name__ == "__main__":
     logger.info("Number of classes: {0}".format(number_of_classes))
 
 
-    npy_drawing_files = get_numpy_drawings_list()
+    npy_drawing_files = get_numpy_drawings_list(reduced_set=33)
 
     x_1 = np.load(npy_drawing_files[0]).reshape((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, 1))
     #x_2 = np.load(npy_drawing_files[1]).reshape((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, 1))
@@ -246,9 +253,23 @@ if __name__ == "__main__":
 
     sn = SimpleCNN(input_shape=(REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE), n_classes=number_of_classes)
 
-    x_train_file_list, y_train_labels_list, x_test_file_list, y_test_labels_list, le = split_the_numpy_drawings_into_test_train_evaluate_datasets()
+    x_train_file_list, y_train_labels_list, x_test_file_list, y_test_labels_list, le = split_the_numpy_drawings_into_test_train_evaluate_datasets(reduced_set=None)
 
-    sn.fit(10, x_train_file_list, y_train_labels_list)
+    n_training_samples = len(x_train_file_list)
+    n_test_samples = len(x_test_file_list)
+
+    epochs = 3
+    batch_size = 1000
+    samples_per_epoch = math.ceil(n_training_samples/batch_size)
+    logger.info("Batch size: {0}".format(batch_size))
+    logger.info("Samples per epoch: {0}".format(samples_per_epoch))
+    logger.info("Epochs: {0}".format(epochs))
+
+    sn.fit(x_train_file_list=x_train_file_list,
+           y_train_labels_list=y_train_labels_list,
+           batch_size=10,
+           samples_per_epoch=samples_per_epoch,
+           epochs=epochs)
 
     p = sn.predict(x)
     print(p)
@@ -257,12 +278,15 @@ if __name__ == "__main__":
     predict_single_image(npy_drawing_files[1], sn, le)
     predict_single_image(npy_drawing_files[2], sn, le)
 
-    x_drawings, y_labels = read_npy_drawing_file_lists_and_return_data_array(x_test_file_list,
-                                                                             y_test_labels_list,
-                                                                             le,
-                                                                             number_of_classes)
+    # x_drawings, y_labels = read_npy_drawing_file_lists_and_return_data_array(x_test_file_list,
+    #                                                                          y_test_labels_list,
+    #                                                                          le,
+    #                                                                          number_of_classes)
 
-    sn.eval(x_drawings, y_labels)
+    sn.eval(x_test_file_list=x_test_file_list,
+            y_test_labels_list=y_test_labels_list,
+            batch_size=10,
+            steps=samples_per_epoch)
 
     # split_the_numpy_drawings_into_test_train_evaluate_datasets()
 

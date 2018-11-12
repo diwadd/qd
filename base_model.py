@@ -1,4 +1,5 @@
 import random
+import time
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -75,55 +76,86 @@ class SimpleCNN(BaseModel):
                            metrics=['accuracy'])
 
     def _generate_data_from_files(self,
-                                  x_train_file_list,
-                                  y_train_labels_list,
+                                  x_data_file_list,
+                                  y_data_labels_list,
                                   batch_size):
 
-        n_x = len(x_train_file_list)
-        n_y = len(y_train_labels_list)
+        n_x = len(x_data_file_list)
+        n_y = len(y_data_labels_list)
 
         assert n_x == n_y, "x and y dimensions do not match!"
-        assert batch_size <= n_x, "Batch size is greater than x_train_file_list!"
+        assert batch_size <= n_x, "Batch size is greater than length of x_data_file_list!"
 
-        x_y_train = [(x_train_file_list[i], y_train_labels_list[i]) for i in range(n_x)]
+        x_y_train = [(x_data_file_list[i], y_data_labels_list[i]) for i in range(n_x)]
+
+        start = 0
+        stop = batch_size
+        while_index = 1
 
         while True:
 
-            batch_x = np.zeros((batch_size, self.n_rows, self.n_cols, self.n_channels))
-            batch_y = np.zeros((batch_size, self.n_classes))
+            logger.debug("\nIn while loop..., while_index: {0}".format(while_index))
+            logger.debug("start: {0} stop: {1}".format(start, stop))
 
-            random.shuffle(x_y_train)
-            for i in range(1, batch_size):
+            number_of_elements_in_batch = stop - start
+            logger.debug("Number of elements in batch: {0}".format(number_of_elements_in_batch))
+
+            batch_x = np.zeros((number_of_elements_in_batch, self.n_rows, self.n_cols, self.n_channels))
+            batch_y = np.zeros((number_of_elements_in_batch, self.n_classes))
+
+            while_index = while_index + 1
+            index = 0
+            # random.shuffle(x_y_train)
+            for i in range(start, stop):
                 file = x_y_train[i][0]
                 y_val = x_y_train[i][1]
 
-                # logger.info("y_val: {0}".format(y_val))
+                logger.debug("i: {0} index: {1} Adding {2} file to batch.".format(i, index, file))
+                # logger.debug("y_val: {0}".format(y_val))
 
                 x = np.load(file).reshape((self.n_rows, self.n_cols, self.n_channels))
 
                 # It would be good to extract the label from "file" and compare
                 # it with y_val but for performance reasons we avoid this.
 
-                batch_x[i, :, :, :] = x
-                batch_y[i, y_val] = 1.0
+                batch_x[index, :, :, :] = x
+                batch_y[index, y_val] = 1.0
+                index = index + 1
 
-                # logger.info("batch_y[i, y_val]: {0}".format(batch_y[i, :]))
+                # logger.debug("batch_y[i, y_val]: {0}".format(batch_y[i, :]))
+
+            start = start + batch_size
+            stop = stop + batch_size
+
+            if start > n_x and stop > n_x:
+                start = 0
+                stop = batch_size
+
+            if stop > n_x:
+                stop = n_x
+
+            # time.sleep(10)
 
             yield batch_x, batch_y
 
 
-    def fit(self, batch_size, x_train_file_list, y_train_labels_list):
+    def fit(self,
+            x_train_file_list,
+            y_train_labels_list,
+            batch_size,
+            samples_per_epoch,
+            epochs):
         # self.model.fit(x_train, y_train,
         #           batch_size=batch_size,
         #           epochs=epochs,
         #           verbose=1,
         #           validation_data=(x_test, y_test))
 
-        self.model.fit_generator(self._generate_data_from_files(x_train_file_list,
-                                                                y_train_labels_list,
-                                                                batch_size),
-                                 samples_per_epoch=10,
-                                 nb_epoch=3)
+        self.model.fit_generator(self._generate_data_from_files(x_data_file_list=x_train_file_list,
+                                                                y_data_labels_list=y_train_labels_list,
+                                                                batch_size=batch_size),
+                                 samples_per_epoch=samples_per_epoch,
+                                 epochs=epochs)
 
 
     def predict(self, x):
@@ -131,7 +163,18 @@ class SimpleCNN(BaseModel):
         return prediction
 
 
-    def eval(self, x_test, y_test):
-        score = self.model.evaluate(x_test, y_test, verbose=0)
+    def eval(self,
+             x_test_file_list,
+             y_test_labels_list,
+             batch_size,
+             steps):
+        # score = self.model.evaluate(x_test, y_test, verbose=0)
+        # logger.info("Your model scored: {0}".format(score))
+        # return score
+
+        score = self.model.evaluate_generator(self._generate_data_from_files(x_data_file_list=x_test_file_list,
+                                                                             y_data_labels_list=y_test_labels_list,
+                                                                             batch_size=batch_size),
+                                              steps=steps)
+
         logger.info("Your model scored: {0}".format(score))
-        return score
