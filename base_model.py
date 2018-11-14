@@ -110,8 +110,8 @@ class SimpleCNN(BaseModel):
                 file = x_y_train[i][0]
                 y_val = x_y_train[i][1]
 
-                logger.debug("i: {0} index: {1} Adding {2} file to batch.".format(i, index, file))
-                # logger.debug("y_val: {0}".format(y_val))
+                # logger.info("i: {0} index: {1} Adding {2} file to batch.".format(i, index, file))
+                # logger.info("y_val: {0}".format(y_val))
 
                 x = np.load(file).reshape((self.n_rows, self.n_cols, self.n_channels))
 

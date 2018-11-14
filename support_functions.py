@@ -2,6 +2,9 @@ import re
 import glob
 import random
 import math
+import csv
+import os
+import ast
 
 import ndjson
 import numpy as np
@@ -18,13 +21,19 @@ SIMPLIFIED_DATA_IMAGE_SIZE = 256
 REDUCED_DATA_IMAGE_SIZE = 28
 NUMBER_IMAGE_OF_CHANNELS = 1
 
-NPY_FILE_REXEXP = re.compile(r"data/class_(?P<drawing_name>.*)_\d+x\d+_id_\d+.npy")
+NPY_FILE_REXEXP = re.compile(r"data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+)_r_(?P<recognized>\d).npy")
 
 random.seed(MAIN_SEED)
 
 
-def get_data_files():
-    data_files = glob.glob("data/*ndjson")
+def get_data_files(file_type="ndjson"):
+
+    if file_type == "ndjson":
+        data_files = glob.glob("data/*ndjson")
+    elif file_type == "csv":
+        data_files = glob.glob("data/*csv")
+    else:
+        assert False, "Wrong type!"
     number_of_classes = len(data_files)
     return data_files, number_of_classes
 
@@ -95,7 +104,7 @@ def get_line(start, end):
     return points
 
 
-def convert_ndjson_image_to_numpy_array(ndjson_drawing):
+def convert_list_image_to_numpy_array(ndjson_drawing):
     np_drawing = np.zeros((SIMPLIFIED_DATA_IMAGE_SIZE, SIMPLIFIED_DATA_IMAGE_SIZE))
 
     logger.debug("---> ndjson drawing START <---")
@@ -122,49 +131,103 @@ def convert_ndjson_image_to_numpy_array(ndjson_drawing):
     return np_drawing
 
 
-def convert_images_from_ndjson_file_into_numpy_arrays_and_save(ndjson_file):
+def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
+                                                               drawing_name,
+                                                               file_extension,
+                                                               drawings_per_file):
 
-    with open(ndjson_file) as f:
-        data = ndjson.load(f)
-
-    rc = re.compile(r"data/full%2Fsimplified%2F(?P<drawing_name>.*).ndjson")
-
-    rm = rc.match(ndjson_file)
-    logger.info("ndjson_file: {0}".format(ndjson_file))
-    logger.info("rm status: {0}".format(rm))
-
-    drawing_name = rm.group("drawing_name").replace(" ", "_")
+    with open(data_file) as f:
+        if file_extension == ".ndjson":
+            data = ndjson.load(f)
+        elif file_extension == ".csv":
+            reader = csv.reader(f)
+            data = list(reader)
+            logger.info("data: {0}".format(data[0]))
+            data = data[1:]
+        else:
+            assert False, "Wrong file extension!"
 
     n_drawings = len(data)
     logger.info("Number of drawings = {0}".format(n_drawings))
 
-    for i in range(n_drawings):
+    if drawings_per_file == None:
+        drawings_per_file = n_drawings
+
+    for i in range(drawings_per_file):
         if i % 1000 == 0:
             logger.info("Processing: {0}/{1}".format(i, n_drawings))
 
-        logger.debug("found drawing_name: {0}".format(rm.group("drawing_name")))
-        ndjson_drawing = data[i]["drawing"]
+        if file_extension == ".ndjson":
+            current_drawing = data[i]["drawing"]
+            recognized = data[i]["recognized"]
+            countrycode = data[i]["countrycode"]
+            key_id = data[i]["key_id"]
+        elif file_extension == ".csv":
+            countrycode = data[i][0] # countrycode
+            # drawing is a string that represents a list so we need to
+            # evaluate it to have a normal list.
+            current_drawing = ast.literal_eval(data[i][1]) # drawing
+            key_id = data[i][2] # key_id
+            # timestamp is not necessary
+            recognized = data[i][3] # recognized
+            word = data[i][5].replace(" ", "_") # word
+            logger.debug("word: {0} drawing_name: {1}".format(word, drawing_name))
+            assert word == drawing_name, "Word and drawing name do not match!"
+        else:
+            assert False, "Wrong file extension!"
 
-        np_drawing = convert_ndjson_image_to_numpy_array(ndjson_drawing)
+        # logger.info("ndjson_drawing: {0}".format(current_drawing))
+        np_drawing = convert_list_image_to_numpy_array(current_drawing)
 
         np_drawing = cv.resize(np_drawing,
                               (REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE),
                               interpolation = cv.INTER_AREA)
 
-        # plt.matshow(np_drawing)
-        # plt.show()
+        # logger.info("np_drawing after resize: {0}".format(np_drawing))
 
-        output_file_name = "data/class_{0}_{1}x{2}_id_{3}.npy".format(drawing_name,
-                                                                             REDUCED_DATA_IMAGE_SIZE,
-                                                                             REDUCED_DATA_IMAGE_SIZE,
-                                                                             i)
+        if recognized == "true":
+            recognized = "1"
+        else:
+            recognized = "0"
+
+        output_file_name = "data/class_{0}_{1}x{2}_id_{3}_{4}_r_{5}.npy".format(drawing_name,
+                                                                                REDUCED_DATA_IMAGE_SIZE,
+                                                                                REDUCED_DATA_IMAGE_SIZE,
+                                                                                key_id,
+                                                                                countrycode,
+                                                                                recognized)
+
+        # logger.info("output_file_name: {0}".format(output_file_name))
         np.save(output_file_name, np_drawing)
 
 
-def convert_ndjson_simplified_data_into_numpy_arrays(ndjson_file_list):
-    n_files = len(ndjson_file_list)
+def convert_ndjson_simplified_data_into_numpy_arrays(ndjson_csv_file_list,
+                                                     drawings_per_file=None):
+
+    _, file_extension = os.path.splitext(ndjson_csv_file_list[0])
+
+    n_files = len(ndjson_csv_file_list)
+
     for i in range(n_files):
-        convert_images_from_ndjson_file_into_numpy_arrays_and_save(ndjson_file_list[i])
+
+        if file_extension == ".ndjson":
+            rc = re.compile(r"data/full%2Fsimplified%2F(?P<drawing_name>.*).ndjson")
+        elif file_extension == ".csv":
+            rc = re.compile(r"data/(?P<drawing_name>.*).csv")
+        else:
+            assert False, "Wrong file extension!"
+
+        rm = rc.match(ndjson_csv_file_list[i])
+        logger.info("ndjson_file: {0}".format(ndjson_csv_file_list[i]))
+        logger.info("rm status: {0}".format(rm))
+        logger.info("found drawing_name: {0}".format(rm.group("drawing_name")))
+
+        drawing_name = rm.group("drawing_name").replace(" ", "_")
+
+        convert_images_from_ndjson_file_into_numpy_arrays_and_save(ndjson_csv_file_list[i],
+                                                                   drawing_name,
+                                                                   file_extension,
+                                                                   drawings_per_file)
 
 def get_labels(numpy_drawings_list):
 
@@ -210,9 +273,9 @@ def split_the_numpy_drawings_into_test_train_evaluate_datasets(reduced_set=None)
     le = LabelEncoder()
     le.fit_transform(labels)
 
-    logger.debug(le.transform(["axe", "bat", "baseball_bat"]))
+    #logger.debug(le.transform(["axe", "bat", "baseball_bat"]))
 
-    logger.debug(labels)
+    #logger.debug(labels)
 
     labels = le.transform(labels)
     logger.debug(labels)
@@ -243,7 +306,7 @@ def predict_single_image(npy_drawing_file, model, le):
 
     x = np.load(npy_drawing_file).reshape((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, 1))
     p = model.predict(x)
-    logger.info("Model prediction p: {0}".format(p))
+    # logger.info("Model prediction p: {0}".format(p))
 
     p_max = np.unravel_index(np.argmax(p[0], axis=None), p[0].shape)
 
