@@ -132,9 +132,26 @@ def convert_list_image_to_numpy_array(ndjson_drawing):
 
 
 def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
-                                                               drawing_name,
-                                                               file_extension,
-                                                               drawings_per_file):
+                                                               drawings_per_file,
+                                                               data_type="train"):
+
+    _, file_extension = os.path.splitext(data_file)
+
+    if file_extension == ".ndjson":
+        rc = re.compile(r"data/full%2Fsimplified%2F(?P<drawing_name>.*).ndjson")
+    elif file_extension == ".csv":
+        rc = re.compile(r"data/(?P<drawing_name>.*).csv")
+    else:
+        assert False, "Wrong file extension!"
+
+    if data_type == "train":
+        rm = rc.match(data_file)
+        logger.info("ndjson_file: {0}".format(data_file))
+        logger.info("rm status: {0}".format(rm))
+        logger.info("found drawing_name: {0}".format(rm.group("drawing_name")))
+        drawing_name = rm.group("drawing_name").replace(" ", "_")
+    else:
+        drawing_name = None
 
     with open(data_file) as f:
         if file_extension == ".ndjson":
@@ -163,16 +180,25 @@ def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
             countrycode = data[i]["countrycode"]
             key_id = data[i]["key_id"]
         elif file_extension == ".csv":
-            countrycode = data[i][0] # countrycode
-            # drawing is a string that represents a list so we need to
-            # evaluate it to have a normal list.
-            current_drawing = ast.literal_eval(data[i][1]) # drawing
-            key_id = data[i][2] # key_id
-            # timestamp is not necessary
-            recognized = data[i][3] # recognized
-            word = data[i][5].replace(" ", "_") # word
-            logger.debug("word: {0} drawing_name: {1}".format(word, drawing_name))
-            assert word == drawing_name, "Word and drawing name do not match!"
+            if data_type == "train":
+                countrycode = data[i][0] # countrycode
+                # drawing is a string that represents a list so we need to
+                # evaluate it to have a normal list.
+                current_drawing = ast.literal_eval(data[i][1]) # drawing
+                key_id = data[i][2] # key_id
+                # timestamp is not necessary
+                recognized = data[i][3] # recognized
+                # word = data[i][5].replace(" ", "_") # word
+                # logger.debug("word: {0} drawing_name: {1}".format(word, drawing_name))
+                # assert word == drawing_name, "Word and drawing name do not match!"
+            elif data_type == "test":
+                # The test data set has mixed columns with respect to the train data.
+                key_id = data[i][0]
+                countrycode = data[i][1]
+                current_drawing = ast.literal_eval(data[i][2]) # drawing
+                recognized = "0"
+            else:
+                pass
         else:
             assert False, "Wrong file extension!"
 
@@ -190,12 +216,20 @@ def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
         else:
             recognized = "0"
 
-        output_file_name = "data/class_{0}_{1}x{2}_id_{3}_{4}_r_{5}.npy".format(drawing_name,
-                                                                                REDUCED_DATA_IMAGE_SIZE,
-                                                                                REDUCED_DATA_IMAGE_SIZE,
-                                                                                key_id,
-                                                                                countrycode,
-                                                                                recognized)
+
+        if data_type == "train":
+            output_file_name = "data/class_{0}_{1}x{2}_id_{3}_{4}_r_{5}.npy".format(drawing_name,
+                                                                                    REDUCED_DATA_IMAGE_SIZE,
+                                                                                    REDUCED_DATA_IMAGE_SIZE,
+                                                                                    key_id,
+                                                                                    countrycode,
+                                                                                    recognized)
+        else:
+            output_file_name = "test_data/class_test_{1}x{2}_id_{3}_{4}_r_0.npy".format("test",
+                                                                                          REDUCED_DATA_IMAGE_SIZE,
+                                                                                          REDUCED_DATA_IMAGE_SIZE,
+                                                                                          key_id,
+                                                                                          countrycode)
 
         # logger.info("output_file_name: {0}".format(output_file_name))
         np.save(output_file_name, np_drawing)
@@ -204,29 +238,11 @@ def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
 def convert_ndjson_simplified_data_into_numpy_arrays(ndjson_csv_file_list,
                                                      drawings_per_file=None):
 
-    _, file_extension = os.path.splitext(ndjson_csv_file_list[0])
-
     n_files = len(ndjson_csv_file_list)
 
     for i in range(n_files):
 
-        if file_extension == ".ndjson":
-            rc = re.compile(r"data/full%2Fsimplified%2F(?P<drawing_name>.*).ndjson")
-        elif file_extension == ".csv":
-            rc = re.compile(r"data/(?P<drawing_name>.*).csv")
-        else:
-            assert False, "Wrong file extension!"
-
-        rm = rc.match(ndjson_csv_file_list[i])
-        logger.info("ndjson_file: {0}".format(ndjson_csv_file_list[i]))
-        logger.info("rm status: {0}".format(rm))
-        logger.info("found drawing_name: {0}".format(rm.group("drawing_name")))
-
-        drawing_name = rm.group("drawing_name").replace(" ", "_")
-
         convert_images_from_ndjson_file_into_numpy_arrays_and_save(ndjson_csv_file_list[i],
-                                                                   drawing_name,
-                                                                   file_extension,
                                                                    drawings_per_file)
 
 def get_labels(numpy_drawings_list):
