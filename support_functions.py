@@ -22,6 +22,8 @@ REDUCED_DATA_IMAGE_SIZE = 28
 NUMBER_IMAGE_OF_CHANNELS = 1
 
 NPY_FILE_REXEXP = re.compile(r"data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+)_r_(?P<recognized>\d).npy")
+NPY_FILE_REXEXP_TEST = re.compile(r"test_data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+)_r_(?P<recognized>\d).npy")
+
 
 random.seed(MAIN_SEED)
 
@@ -37,8 +39,12 @@ def get_data_files(file_type="ndjson"):
     number_of_classes = len(data_files)
     return data_files, number_of_classes
 
-def get_numpy_drawings_list(reduced_set=None):
-    numpy_drawings_list = glob.glob("data/*.npy")
+def get_numpy_drawings_list(reduced_set=None,
+                            data_type="train"):
+    if data_type == "train":
+        numpy_drawings_list = glob.glob("data/*.npy")
+    else:
+        numpy_drawings_list = glob.glob("test_data/*.npy")
 
     if reduced_set is not None:
         numpy_drawings_list = numpy_drawings_list[1:reduced_set]

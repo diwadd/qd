@@ -106,6 +106,7 @@ class SimpleCNN(BaseModel):
             while_index = while_index + 1
             index = 0
             # random.shuffle(x_y_train)
+            # logger.info("befor loop - start: {0} stop: {1} n_x: {2}".format(start, stop, n_x))
             for i in range(start, stop):
                 file = x_y_train[i][0]
                 y_val = x_y_train[i][1]
@@ -126,8 +127,9 @@ class SimpleCNN(BaseModel):
 
             start = start + batch_size
             stop = stop + batch_size
+            # logger.info("after loop - start: {0} stop: {1} n_x: {2}".format(start, stop, n_x))
 
-            if start > n_x and stop > n_x:
+            if (start > n_x or stop > n_x) or (start == stop):
                 start = 0
                 stop = batch_size
 
@@ -135,6 +137,8 @@ class SimpleCNN(BaseModel):
                 stop = n_x
 
             # time.sleep(10)
+
+            # logger.info("batch_x: {0} batch_y: {1}".format(len(batch_x),len(batch_y)))
 
             yield batch_x, batch_y
 
