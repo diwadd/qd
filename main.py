@@ -5,6 +5,7 @@ from custom_logger import logger
 import support_functions as sf
 
 from base_model import SimpleCNN
+from base_model import ComplexCNN
 
 if __name__ == "__main__":
     print("Starting...")
@@ -21,15 +22,16 @@ if __name__ == "__main__":
     x=x_1
     logger.info("x.shape: {0}".format(x.shape))
 
-    sn = SimpleCNN(input_shape=(sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE), n_classes=number_of_classes)
+    # sn = SimpleCNN(input_shape=(sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE), n_classes=number_of_classes)
+    sn = ComplexCNN(input_shape=(sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE), n_classes=number_of_classes)
 
     x_train_file_list, y_train_labels_list, x_test_file_list, y_test_labels_list, le = sf.split_the_numpy_drawings_into_test_train_evaluate_datasets(reduced_set=None)
 
     n_training_samples = len(x_train_file_list)
     n_test_samples = len(x_test_file_list)
 
-    epochs = 3
-    batch_size = 100
+    epochs = 100
+    batch_size = 1000
     samples_per_epoch = math.ceil(n_training_samples/batch_size)
     logger.info("Batch size: {0}".format(batch_size))
     logger.info("Samples per epoch: {0}".format(samples_per_epoch))
@@ -42,7 +44,7 @@ if __name__ == "__main__":
            epochs=epochs)
 
     p = sn.predict(x)
-    print(p)
+    logger.info("p: {0}".format(p))
 
     # for i in range(10):
     #     sf.predict_single_image(npy_drawing_files[i], sn, le)
@@ -65,16 +67,23 @@ if __name__ == "__main__":
     f.write("key_id,word\n")
     n_t = len(test_data_list)
     for i in range(n_t):
+        if i % 1000 == 0:
+            logger.info("{0}/{1}".format(i,n_t))
         x = np.load(test_data_list[i]).reshape((1, sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE, 1))
         p = sn.predict(x)
         p = p[0]
 
         indexes = np.argpartition(p,-3)[-3:]
 
-        logger.info("Processing file: {0} indexes: {1}".format(test_data_list[i], indexes))
+        # logger.info("Processing file: {0} indexes: {1}".format(test_data_list[i], indexes))
 
         rm = sf.NPY_FILE_REXEXP_TEST.match(test_data_list[i])
-        key_id = rm.group("key_id")
+
+        try:
+            key_id = rm.group("key_id")
+        except AttributeError:
+            logger.info("Error is here: {0}".format(test_data_list[i]))
+
 
         p0 = le.inverse_transform([indexes[0]])
         p1 = le.inverse_transform([indexes[1]])

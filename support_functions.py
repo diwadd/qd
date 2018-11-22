@@ -21,8 +21,8 @@ SIMPLIFIED_DATA_IMAGE_SIZE = 256
 REDUCED_DATA_IMAGE_SIZE = 28
 NUMBER_IMAGE_OF_CHANNELS = 1
 
-NPY_FILE_REXEXP = re.compile(r"data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+)_r_(?P<recognized>\d).npy")
-NPY_FILE_REXEXP_TEST = re.compile(r"test_data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+)_r_(?P<recognized>\d).npy")
+NPY_FILE_REXEXP = re.compile(r"train_data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+)_r_(?P<recognized>\d).npy")
+NPY_FILE_REXEXP_TEST = re.compile(r"test_data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+|)_r_(?P<recognized>\d).npy")
 
 
 random.seed(MAIN_SEED)
@@ -42,7 +42,7 @@ def get_data_files(file_type="ndjson"):
 def get_numpy_drawings_list(reduced_set=None,
                             data_type="train"):
     if data_type == "train":
-        numpy_drawings_list = glob.glob("data/*.npy")
+        numpy_drawings_list = glob.glob("train_data/*.npy")
     else:
         numpy_drawings_list = glob.glob("test_data/*.npy")
 
@@ -139,6 +139,7 @@ def convert_list_image_to_numpy_array(ndjson_drawing):
 
 def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
                                                                drawings_per_file,
+                                                               processed_files_file,
                                                                data_type="train"):
 
     _, file_extension = os.path.splitext(data_file)
@@ -177,7 +178,7 @@ def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
         drawings_per_file = n_drawings
 
     for i in range(drawings_per_file):
-        if i % 1000 == 0:
+        if i % 10000 == 0:
             logger.info("Processing: {0}/{1}".format(i, n_drawings))
 
         if file_extension == ".ndjson":
@@ -224,7 +225,7 @@ def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
 
 
         if data_type == "train":
-            output_file_name = "data/class_{0}_{1}x{2}_id_{3}_{4}_r_{5}.npy".format(drawing_name,
+            output_file_name = "train_data/class_{0}_{1}x{2}_id_{3}_{4}_r_{5}.npy".format(drawing_name,
                                                                                     REDUCED_DATA_IMAGE_SIZE,
                                                                                     REDUCED_DATA_IMAGE_SIZE,
                                                                                     key_id,
@@ -240,16 +241,22 @@ def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
         # logger.info("output_file_name: {0}".format(output_file_name))
         np.save(output_file_name, np_drawing)
 
+    if data_type == "train":
+    	processed_files_file.write(data_file + "\n")
 
 def convert_ndjson_simplified_data_into_numpy_arrays(ndjson_csv_file_list,
                                                      drawings_per_file=None):
 
     n_files = len(ndjson_csv_file_list)
 
+    processed_files_file = open("processed_train_data_{0}x{1}.txt".format(REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE), "w")
     for i in range(n_files):
+        logger.info("File number: {0}".format(i))
 
         convert_images_from_ndjson_file_into_numpy_arrays_and_save(ndjson_csv_file_list[i],
-                                                                   drawings_per_file)
+                                                                   drawings_per_file,
+                                                                   processed_files_file)
+    processed_files_file.close()
 
 def get_labels(numpy_drawings_list):
 
@@ -276,7 +283,8 @@ def get_labels(numpy_drawings_list):
 
     return labels
 
-def split_the_numpy_drawings_into_test_train_evaluate_datasets(reduced_set=None):
+def split_the_numpy_drawings_into_test_train_evaluate_datasets(reduced_set=None,
+                                                               test_size=0.05):
 
     numpy_drawings_list = get_numpy_drawings_list(reduced_set=reduced_set)
     logger.debug("numpy_drawings_list length: {0}".format(len(numpy_drawings_list)))
@@ -304,7 +312,7 @@ def split_the_numpy_drawings_into_test_train_evaluate_datasets(reduced_set=None)
 
     x_train, x_test, y_train, y_test = train_test_split(numpy_drawings_list,
                                                         labels,
-                                                        test_size=0.2,
+                                                        test_size=test_size,
                                                         random_state=MAIN_SEED)
 
     logger.info(" --- Size of split data --- ")

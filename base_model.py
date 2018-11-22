@@ -5,10 +5,20 @@ from abc import ABC, abstractmethod
 import numpy as np
 import tensorflow as tf
 import keras
+from keras import backend as K
 from keras.datasets import mnist
 from keras.models import Model
-from keras.layers import Dense, Dropout, Flatten, Input
-from keras.layers import Conv2D, MaxPooling2D
+from keras import layers
+from keras.layers import Dense
+from keras.layers import Dropout
+from keras.layers import Activation
+from keras.layers import Flatten
+from keras.layers import Input
+from keras.layers import Conv2D
+from keras.layers import MaxPooling2D
+from keras.layers import BatchNormalization
+from keras.layers import GlobalAveragePooling2D
+from keras.layers import SeparableConv2D
 from keras import backend as K
 from keras.backend.tensorflow_backend import set_session
 
@@ -180,6 +190,146 @@ class SimpleCNN(BaseModel):
         score = self.model.evaluate_generator(self._generate_data_from_files(x_data_file_list=x_test_file_list,
                                                                              y_data_labels_list=y_test_labels_list,
                                                                              batch_size=batch_size),
-                                              steps=steps)
+                                                                             steps=steps)
 
         logger.info("Your model scored: {0}".format(score))
+
+
+class ComplexCNN(SimpleCNN):
+
+    def __init__(self,
+                 input_shape,
+                 n_classes,
+                 n_channels=1):
+
+        self.n_rows = input_shape[0]
+        self.n_cols = input_shape[1]
+        self.n_channels = n_channels
+        self.n_classes = n_classes
+
+        logger.info("imput_shape: {0}".format(input_shape))
+
+        self.inputs = Input(shape=(self.n_rows, self.n_cols, n_channels))
+
+
+        # --- Block 1 ---
+
+        x = Conv2D(32, (3, 3), strides=(2, 2), use_bias=False, name='block1_conv1')(self.inputs)
+        x = BatchNormalization(name='bl1_cn1_bn')(x)
+        x = Activation('relu', name='bl1_cn1_act')(x)
+        logger.info("bl1_cn1 shape: {0}".format(K.int_shape(x)))
+
+        x = Conv2D(64, (3, 3), use_bias=False, name='bl1_cn2')(x)
+        x = BatchNormalization(name='bl1_cn2_bn')(x)
+        x = Activation('relu', name='bl1_cn2_act')(x)
+        logger.info("bl1_cn2 shape: {0}".format(K.int_shape(x)))
+
+
+        residual = Conv2D(128, (1, 1), strides=(2, 2),
+                          padding='same', use_bias=False)(x)
+        residual = BatchNormalization()(residual)
+
+        # --- Block 2 ---
+
+        x = SeparableConv2D(128, (3, 3), padding='same', use_bias=False, name='bl2_scn1')(x)
+        x = BatchNormalization(name='bl2_scn1_bn')(x)
+        x = Activation('relu', name='bl2_scn2_act')(x)
+        x = SeparableConv2D(128, (3, 3), padding='same', use_bias=False, name='bl2_scn2')(x)
+        x = BatchNormalization(name='bl2_scn2_bn')(x)
+
+        x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='bl2_pool')(x)
+        x = layers.add([x, residual])
+
+        residual = Conv2D(256, (1, 1), strides=(2, 2),
+                      padding='same', use_bias=False)(x)
+        residual = BatchNormalization()(residual)
+  
+        # --- Block 3 ---
+
+        x = Activation('relu', name='bl3_scn1_act')(x)
+        x = SeparableConv2D(256, (3, 3), padding='same', use_bias=False, name='bl3_scn1')(x)
+        x = BatchNormalization(name='bl3_scn1_bn')(x)
+        x = Activation('relu', name='bl3_scn2_act')(x)
+        x = SeparableConv2D(256, (3, 3), padding='same', use_bias=False, name='bl3_scn2')(x)
+        x = BatchNormalization(name='bl3_scn2_bn')(x)
+
+        x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='bl3_pool')(x)
+        x = layers.add([x, residual])
+
+        residual = Conv2D(728, (1, 1), strides=(2, 2),
+                          padding='same', use_bias=False)(x)
+        residual = BatchNormalization()(residual)
+
+        # --- Block 4 ---
+
+        x = Activation('relu', name='bl4_scn1_act')(x)
+        x = SeparableConv2D(728, (3, 3), padding='same', use_bias=False, name='bl4_scn1')(x)
+        x = BatchNormalization(name='bl4_scn1_bn')(x)
+        x = Activation('relu', name='bl4_scn2_act')(x)
+        x = SeparableConv2D(728, (3, 3), padding='same', use_bias=False, name='bl4_scn2')(x)
+        x = BatchNormalization(name='bl4_scn2_bn')(x)
+
+        x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='bl4_pool')(x)
+        x = layers.add([x, residual])
+
+        for i in range(8):
+            residual = x
+            prefix = 'block' + str(i + 5)
+
+            x = Activation('relu', name=prefix + '_scn1_act')(x)
+            x = SeparableConv2D(728, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv1')(x)
+            x = BatchNormalization(name=prefix + '_scn1_bn')(x)
+            x = Activation('relu', name=prefix + '_scn2_act')(x)
+            x = SeparableConv2D(728, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv2')(x)
+            x = BatchNormalization(name=prefix + '_scn2_bn')(x)
+            x = Activation('relu', name=prefix + '_scn3_act')(x)
+            x = SeparableConv2D(728, (3, 3), padding='same', use_bias=False, name=prefix + '_sepconv3')(x)
+            x = BatchNormalization(name=prefix + '_scn3_bn')(x)
+
+            x = layers.add([x, residual])
+
+        residual = Conv2D(1024, (1, 1), strides=(2, 2),
+                          padding='same', use_bias=False)(x)
+        residual = BatchNormalization()(residual)
+
+        # --- Block 13 ---
+
+        x = Activation('relu', name='bl13_scn1_act')(x)
+        x = SeparableConv2D(728, (3, 3), padding='same', use_bias=False, name='bl13_scn1')(x)
+        x = BatchNormalization(name='bl13_scn1_bn')(x)
+        x = Activation('relu', name='bl13_scn2_act')(x)
+        x = SeparableConv2D(1024, (3, 3), padding='same', use_bias=False, name='bl13_scn2')(x)
+        x = BatchNormalization(name='bl13_scn2_bn')(x)
+
+        x = MaxPooling2D((3, 3), strides=(2, 2), padding='same', name='block13_pool')(x)
+        x = layers.add([x, residual])
+
+        # --- Block 14 ---
+
+        x = SeparableConv2D(1536, (3, 3), padding='same', use_bias=False, name='block14_sepconv1')(x)
+        x = BatchNormalization(name='bl14_scn1_bn')(x)
+        x = Activation('relu', name='bl14_scn1_act')(x)
+
+        x = SeparableConv2D(2048, (3, 3), padding='same', use_bias=False, name='bl14_scn2')(x)
+        x = BatchNormalization(name='bl14_scn2_bn')(x)
+        x = Activation('relu', name='bl14_scn2_act')(x)
+
+        x = GlobalAveragePooling2D(name='avg_pool')(x)
+        self.outputs = Dense(n_classes, activation='softmax', name='predictions')(x)
+
+
+        # x = Conv2D(64, (3, 3), activation='relu')(x)
+        # x = MaxPooling2D(pool_size=(2, 2))(x)
+        # x = Dropout(0.25)(x)
+        # x = Flatten()(x)
+        # x = Dense(128, activation='relu')(x)
+        # x = Dropout(0.5)(x)
+        # self.outputs = Dense(n_classes, activation='softmax')(x)
+
+        self.model = Model(inputs=[self.inputs], outputs=[self.outputs])
+
+        self.model.compile(loss=keras.losses.categorical_crossentropy,
+                           optimizer=keras.optimizers.Adadelta(),
+                           metrics=['accuracy'])
+
+
