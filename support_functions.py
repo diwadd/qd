@@ -5,6 +5,7 @@ import math
 import csv
 import os
 import ast
+import h5py
 
 import ndjson
 import numpy as np
@@ -41,10 +42,13 @@ def get_data_files(file_type="ndjson"):
 
 def get_numpy_drawings_list(reduced_set=None,
                             data_type="train"):
-    if data_type == "train":
-        numpy_drawings_list = glob.glob("train_data/*.npy")
-    else:
-        numpy_drawings_list = glob.glob("test_data/*.npy")
+
+    file_containing_datasets = "{0}_datasets_{1}x{2}.txt".format(data_type,
+                                                                 REDUCED_DATA_IMAGE_SIZE,
+                                                                 REDUCED_DATA_IMAGE_SIZE)
+
+    with open(file_containing_datasets) as f:
+        numpy_drawings_list = f.readlines()
 
     if reduced_set is not None:
         numpy_drawings_list = numpy_drawings_list[1:reduced_set]
@@ -139,7 +143,8 @@ def convert_list_image_to_numpy_array(ndjson_drawing):
 
 def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
                                                                drawings_per_file,
-                                                               processed_files_file,
+                                                               h5_file,
+                                                               file_containing_datasets,
                                                                data_type="train"):
 
     _, file_extension = os.path.splitext(data_file)
@@ -225,38 +230,51 @@ def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
 
 
         if data_type == "train":
-            output_file_name = "train_data/class_{0}_{1}x{2}_id_{3}_{4}_r_{5}.npy".format(drawing_name,
-                                                                                    REDUCED_DATA_IMAGE_SIZE,
-                                                                                    REDUCED_DATA_IMAGE_SIZE,
-                                                                                    key_id,
-                                                                                    countrycode,
-                                                                                    recognized)
+            output_file_name = "class_{0}_{1}x{2}_id_{3}_{4}_r_{5}.npy".format(drawing_name,
+                                                                               REDUCED_DATA_IMAGE_SIZE,
+                                                                               REDUCED_DATA_IMAGE_SIZE,
+                                                                               key_id,
+                                                                               countrycode,
+                                                                               recognized)
+            h5_file.create_dataset(data_type + "_data/" + output_file_name, data=np_drawing)
+            file_containing_datasets.write(data_type + "_data/" + output_file_name + "\n")
+
         else:
-            output_file_name = "test_data/class_test_{1}x{2}_id_{3}_{4}_r_0.npy".format("test",
-                                                                                          REDUCED_DATA_IMAGE_SIZE,
-                                                                                          REDUCED_DATA_IMAGE_SIZE,
-                                                                                          key_id,
-                                                                                          countrycode)
+            output_file_name = "class_test_{1}x{2}_id_{3}_{4}_r_0.npy".format("test",
+                                                                              REDUCED_DATA_IMAGE_SIZE,
+                                                                              REDUCED_DATA_IMAGE_SIZE,
+                                                                              key_id,
+                                                                              countrycode)
+            h5_file.create_dataset(data_type + "_data/" + output_file_name, data=np_drawing)
+            file_containing_datasets.write(data_type + "_data/" + output_file_name + "\n")
 
         # logger.info("output_file_name: {0}".format(output_file_name))
-        np.save(output_file_name, np_drawing)
+        # np.save(output_file_name, np_drawing)
 
-    if data_type == "train":
-    	processed_files_file.write(data_file + "\n")
 
 def convert_ndjson_simplified_data_into_numpy_arrays(ndjson_csv_file_list,
-                                                     drawings_per_file=None):
+                                                     drawings_per_file=None,
+                                                     data_type="train"):
 
     n_files = len(ndjson_csv_file_list)
 
-    processed_files_file = open("processed_train_data_{0}x{1}.txt".format(REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE), "w")
+    h5_file = h5py.File("{0}_class_{1}x{2}.h5".format(data_type,
+                                                      REDUCED_DATA_IMAGE_SIZE,
+                                                      REDUCED_DATA_IMAGE_SIZE), "w")
+
+    file_containing_datasets = open("{0}_datasets_{1}x{2}.txt".format(data_type,
+                                                                      REDUCED_DATA_IMAGE_SIZE,
+                                                                      REDUCED_DATA_IMAGE_SIZE),"w")
     for i in range(n_files):
         logger.info("File number: {0}".format(i))
 
         convert_images_from_ndjson_file_into_numpy_arrays_and_save(ndjson_csv_file_list[i],
                                                                    drawings_per_file,
-                                                                   processed_files_file)
-    processed_files_file.close()
+                                                                   h5_file,
+                                                                   file_containing_datasets,
+                                                                   data_type=data_type)
+    file_containing_datasets.close()
+    h5_file.close()
 
 def get_labels(numpy_drawings_list):
 

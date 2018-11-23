@@ -2,6 +2,7 @@ import random
 import time
 from abc import ABC, abstractmethod
 
+import h5py
 import numpy as np
 import tensorflow as tf
 import keras
@@ -86,6 +87,7 @@ class SimpleCNN(BaseModel):
                            metrics=['accuracy'])
 
     def _generate_data_from_files(self,
+                                  h5_file,
                                   x_data_file_list,
                                   y_data_labels_list,
                                   batch_size):
@@ -104,11 +106,11 @@ class SimpleCNN(BaseModel):
 
         while True:
 
-            logger.debug("\nIn while loop..., while_index: {0}".format(while_index))
-            logger.debug("start: {0} stop: {1}".format(start, stop))
+            # logger.info("\nIn while loop..., while_index: {0}".format(while_index))
+            # logger.info("start: {0} stop: {1}".format(start, stop))
 
             number_of_elements_in_batch = stop - start
-            logger.debug("Number of elements in batch: {0}".format(number_of_elements_in_batch))
+            # logger.info("Number of elements in batch: {0}".format(number_of_elements_in_batch))
 
             batch_x = np.zeros((number_of_elements_in_batch, self.n_rows, self.n_cols, self.n_channels))
             batch_y = np.zeros((number_of_elements_in_batch, self.n_classes))
@@ -124,7 +126,9 @@ class SimpleCNN(BaseModel):
                 # logger.info("i: {0} index: {1} Adding {2} file to batch.".format(i, index, file))
                 # logger.info("y_val: {0}".format(y_val))
 
-                x = np.load(file).reshape((self.n_rows, self.n_cols, self.n_channels))
+                # x = np.load(file).reshape((self.n_rows, self.n_cols, self.n_channels))
+                x = h5_file.get(file.replace("\n",""))
+                x = np.array(x).reshape((self.n_rows, self.n_cols, self.n_channels))
 
                 # It would be good to extract the label from "file" and compare
                 # it with y_val but for performance reasons we avoid this.
@@ -154,6 +158,7 @@ class SimpleCNN(BaseModel):
 
 
     def fit(self,
+            h5_file,
             x_train_file_list,
             y_train_labels_list,
             batch_size,
@@ -165,7 +170,8 @@ class SimpleCNN(BaseModel):
         #           verbose=1,
         #           validation_data=(x_test, y_test))
 
-        self.model.fit_generator(self._generate_data_from_files(x_data_file_list=x_train_file_list,
+        self.model.fit_generator(self._generate_data_from_files(h5_file=h5_file,
+                                                                x_data_file_list=x_train_file_list,
                                                                 y_data_labels_list=y_train_labels_list,
                                                                 batch_size=batch_size),
                                  samples_per_epoch=samples_per_epoch,
@@ -243,7 +249,7 @@ class ComplexCNN(SimpleCNN):
         residual = Conv2D(256, (1, 1), strides=(2, 2),
                       padding='same', use_bias=False)(x)
         residual = BatchNormalization()(residual)
-  
+
         # --- Block 3 ---
 
         x = Activation('relu', name='bl3_scn1_act')(x)
@@ -331,5 +337,3 @@ class ComplexCNN(SimpleCNN):
         self.model.compile(loss=keras.losses.categorical_crossentropy,
                            optimizer=keras.optimizers.Adadelta(),
                            metrics=['accuracy'])
-
-
