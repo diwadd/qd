@@ -110,8 +110,11 @@ class SimpleCNN(BaseModel):
             number_of_elements_in_batch = stop - start
             logger.debug("Number of elements in batch: {0}".format(number_of_elements_in_batch))
 
-            batch_x = np.zeros((number_of_elements_in_batch, self.n_rows, self.n_cols, self.n_channels))
-            batch_y = np.zeros((number_of_elements_in_batch, self.n_classes))
+            # batch_x = np.zeros((number_of_elements_in_batch, self.n_rows, self.n_cols, self.n_channels))
+            # batch_y = np.zeros((number_of_elements_in_batch, self.n_classes))
+
+            batch_x = np.zeros((1, self.n_rows, self.n_cols, self.n_channels))
+            batch_y = np.zeros((1, self.n_classes))
 
             while_index = while_index + 1
             index = 0
@@ -124,13 +127,27 @@ class SimpleCNN(BaseModel):
                 # logger.info("i: {0} index: {1} Adding {2} file to batch.".format(i, index, file))
                 # logger.info("y_val: {0}".format(y_val))
 
-                x = np.load(file).reshape((self.n_rows, self.n_cols, self.n_channels))
+                #x = np.load(file).reshape((self.n_rows, self.n_cols, self.n_channels))
+                x = np.load(file)
+                bn, _, _ = x.shape
+                x = x.reshape((bn, self.n_rows, self.n_cols, self.n_channels))
 
                 # It would be good to extract the label from "file" and compare
                 # it with y_val but for performance reasons we avoid this.
 
-                batch_x[index, :, :, :] = x
-                batch_y[index, y_val] = 1.0
+                # batch_x[index, :, :, :] = x
+                # batch_y[index, y_val] = 1.0
+
+                # logger.info("batch_x shape: {0}".format(batch_x.shape))
+                # logger.info("x shape: {0}".format(x.shape))
+                batch_x = np.concatenate((batch_x, x), axis=0)
+
+
+                y_val_for_whole_file = np.zeros((bn, self.n_classes))
+                y_val_for_whole_file[:, y_val] = 1.0
+
+                batch_y = np.concatenate((batch_y, y_val_for_whole_file), axis=0)
+
                 index = index + 1
 
                 # logger.debug("batch_y[i, y_val]: {0}".format(batch_y[i, :]))
@@ -150,7 +167,7 @@ class SimpleCNN(BaseModel):
 
             # logger.info("batch_x: {0} batch_y: {1}".format(len(batch_x),len(batch_y)))
 
-            yield batch_x, batch_y
+            yield batch_x[1:, :, :, :], batch_y[1:, :]
 
 
     def fit(self,
@@ -243,7 +260,7 @@ class ComplexCNN(SimpleCNN):
         residual = Conv2D(256, (1, 1), strides=(2, 2),
                       padding='same', use_bias=False)(x)
         residual = BatchNormalization()(residual)
-  
+
         # --- Block 3 ---
 
         x = Activation('relu', name='bl3_scn1_act')(x)
@@ -331,5 +348,3 @@ class ComplexCNN(SimpleCNN):
         self.model.compile(loss=keras.losses.categorical_crossentropy,
                            optimizer=keras.optimizers.Adadelta(),
                            metrics=['accuracy'])
-
-

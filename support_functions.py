@@ -20,6 +20,7 @@ MAIN_SEED = 0
 SIMPLIFIED_DATA_IMAGE_SIZE = 256
 REDUCED_DATA_IMAGE_SIZE = 28
 NUMBER_IMAGE_OF_CHANNELS = 1
+PADDING_SZIE = 6
 
 NPY_FILE_REXEXP = re.compile(r"train_data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+)_r_(?P<recognized>\d).npy")
 NPY_FILE_REXEXP_TEST = re.compile(r"test_data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+|)_r_(?P<recognized>\d).npy")
@@ -140,6 +141,7 @@ def convert_list_image_to_numpy_array(ndjson_drawing):
 def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
                                                                drawings_per_file,
                                                                processed_files_file,
+                                                               N_DRAWINGS_PER_ARRAY,
                                                                data_type="train"):
 
     _, file_extension = os.path.splitext(data_file)
@@ -177,9 +179,17 @@ def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
     if drawings_per_file == None:
         drawings_per_file = n_drawings
 
+    a_index = 0
+    i_index = 0
+    np_drawing_array = np.zeros((N_DRAWINGS_PER_ARRAY, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE))
+
+    n_chunks = int(drawings_per_file/N_DRAWINGS_PER_ARRAY)
+    logger.info("Number of chunks: {0}".format(n_chunks))
+    last_chunk_empty = True
+
     for i in range(drawings_per_file):
-        if i % 10000 == 0:
-            logger.info("Processing: {0}/{1}".format(i, n_drawings))
+        #if i % 10000 == 0:
+        logger.info("Processing: {0}/{1}".format(i, n_drawings))
 
         if file_extension == ".ndjson":
             current_drawing = data[i]["drawing"]
@@ -224,28 +234,63 @@ def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
             recognized = "0"
 
 
-        if data_type == "train":
-            output_file_name = "train_data/class_{0}_{1}x{2}_id_{3}_{4}_r_{5}.npy".format(drawing_name,
-                                                                                    REDUCED_DATA_IMAGE_SIZE,
-                                                                                    REDUCED_DATA_IMAGE_SIZE,
-                                                                                    key_id,
-                                                                                    countrycode,
-                                                                                    recognized)
-        else:
+        # if data_type == "train":
+        #     output_file_name = "train_data/class_{0}_{1}x{2}_id_{3}_{4}_r_{5}.npy".format(drawing_name,
+        #                                                                             REDUCED_DATA_IMAGE_SIZE,
+        #                                                                             REDUCED_DATA_IMAGE_SIZE,
+        #                                                                             key_id,
+        #                                                                             countrycode,
+        #                                                                             recognized)
+        if data_type == "test":
             output_file_name = "test_data/class_test_{1}x{2}_id_{3}_{4}_r_0.npy".format("test",
-                                                                                          REDUCED_DATA_IMAGE_SIZE,
-                                                                                          REDUCED_DATA_IMAGE_SIZE,
-                                                                                          key_id,
-                                                                                          countrycode)
+                                                                                         REDUCED_DATA_IMAGE_SIZE,
+                                                                                         REDUCED_DATA_IMAGE_SIZE,
+                                                                                         key_id,
+                                                                                         countrycode)
+            np.save(output_file_name, np_drawing)
+            continue
+
+
+        if i_index == n_chunks:
+            np_drawing = np_drawing.reshape((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE))
+            np_drawing_array = np.concatenate((np_drawing_array, np_drawing), axis=0)
+            last_chunk_empty = False
+        else:
+            np_drawing_array[a_index, :, :] = np_drawing[:, :]
+            a_index = a_index + 1
+
+        if a_index == N_DRAWINGS_PER_ARRAY:
+            np_drawinf_array_filename = "train_data/class_{0}_{1}x{2}_id_{3}_XX_r_0.npy".format(drawing_name,
+                                                                                                REDUCED_DATA_IMAGE_SIZE,
+                                                                                                REDUCED_DATA_IMAGE_SIZE,
+                                                                                                str(i_index).zfill(PADDING_SZIE))
+            np.save(np_drawinf_array_filename, np_drawing_array[1:, :, :])
+            a_index = 0
+            i_index = i_index + 1
+
+            if i_index == n_chunks:
+                logger.info("Processed {0} chunks {1}".format(i_index, n_chunks))
+                np_drawing_array = np.zeros((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE))
+            else:
+                np_drawing_array = np.zeros((N_DRAWINGS_PER_ARRAY, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE))
 
         # logger.info("output_file_name: {0}".format(output_file_name))
-        np.save(output_file_name, np_drawing)
+
+
+
+    if last_chunk_empty == False:
+         np_drawinf_array_filename = "train_data/class_{0}_{1}x{2}_id_{3}_XX_r_0.npy".format(drawing_name,
+                                                                                             REDUCED_DATA_IMAGE_SIZE,
+                                                                                             REDUCED_DATA_IMAGE_SIZE,
+                                                                                             str(i_index).zfill(PADDING_SZIE))
+         np.save(np_drawinf_array_filename, np_drawing_array[1:, :, :])
 
     if data_type == "train":
     	processed_files_file.write(data_file + "\n")
 
 def convert_ndjson_simplified_data_into_numpy_arrays(ndjson_csv_file_list,
-                                                     drawings_per_file=None):
+                                                     drawings_per_file=100,
+                                                     N_DRAWINGS_PER_ARRAY=10):
 
     n_files = len(ndjson_csv_file_list)
 
@@ -255,7 +300,8 @@ def convert_ndjson_simplified_data_into_numpy_arrays(ndjson_csv_file_list,
 
         convert_images_from_ndjson_file_into_numpy_arrays_and_save(ndjson_csv_file_list[i],
                                                                    drawings_per_file,
-                                                                   processed_files_file)
+                                                                   processed_files_file,
+                                                                   N_DRAWINGS_PER_ARRAY)
     processed_files_file.close()
 
 def get_labels(numpy_drawings_list):

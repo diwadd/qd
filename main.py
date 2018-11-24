@@ -15,23 +15,16 @@ if __name__ == "__main__":
 
     npy_drawing_files = sf.get_numpy_drawings_list(reduced_set=None)
 
-    x_1 = np.load(npy_drawing_files[0]).reshape((1, sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE, 1))
-    #x_2 = np.load(npy_drawing_files[1]).reshape((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, 1))
-
-    #x = np.concatenate((x_1, x_2), axis=0)
-    x=x_1
-    logger.info("x.shape: {0}".format(x.shape))
-
-    # sn = SimpleCNN(input_shape=(sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE), n_classes=number_of_classes)
-    sn = ComplexCNN(input_shape=(sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE), n_classes=number_of_classes)
+    sn = SimpleCNN(input_shape=(sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE), n_classes=number_of_classes)
+    # sn = ComplexCNN(input_shape=(sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE), n_classes=number_of_classes)
 
     x_train_file_list, y_train_labels_list, x_test_file_list, y_test_labels_list, le = sf.split_the_numpy_drawings_into_test_train_evaluate_datasets(reduced_set=None)
 
     n_training_samples = len(x_train_file_list)
     n_test_samples = len(x_test_file_list)
 
-    epochs = 100
-    batch_size = 1000
+    epochs = 3
+    batch_size = 10
     samples_per_epoch = math.ceil(n_training_samples/batch_size)
     logger.info("Batch size: {0}".format(batch_size))
     logger.info("Samples per epoch: {0}".format(samples_per_epoch))
@@ -42,6 +35,13 @@ if __name__ == "__main__":
            batch_size=10,
            samples_per_epoch=samples_per_epoch,
            epochs=epochs)
+
+    x_1 = np.load(npy_drawing_files[0])
+    #x_2 = np.load(npy_drawing_files[1]).reshape((1, REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE, 1))
+
+    #x = np.concatenate((x_1, x_2), axis=0)
+    x=x_1[0, :, :].reshape((1, sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE, 1))
+    logger.info("x.shape: {0}".format(x.shape))
 
     p = sn.predict(x)
     logger.info("p: {0}".format(p))
