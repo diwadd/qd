@@ -85,6 +85,12 @@ class SimpleCNN(BaseModel):
                            optimizer=keras.optimizers.Adadelta(),
                            metrics=['accuracy'])
 
+    def set_model(self, model):
+        self.model = model
+
+    def save(self, filename):
+        self.model.save(filename)
+
     def _generate_data_from_files(self,
                                   x_data_file_list,
                                   y_data_labels_list,
@@ -102,13 +108,15 @@ class SimpleCNN(BaseModel):
         stop = batch_size
         while_index = 1
 
+        #logger.info("Batch size: {0}".format(batch_size))
+
         while True:
 
-            logger.debug("\nIn while loop..., while_index: {0}".format(while_index))
-            logger.debug("start: {0} stop: {1}".format(start, stop))
+            #logger.info("\nIn while loop..., while_index: {0}".format(while_index))
+            #logger.info("start: {0} stop: {1}".format(start, stop))
 
             number_of_elements_in_batch = stop - start
-            logger.debug("Number of elements in batch: {0}".format(number_of_elements_in_batch))
+            #logger.info("Number of elements in batch: {0}".format(number_of_elements_in_batch))
 
             # batch_x = np.zeros((number_of_elements_in_batch, self.n_rows, self.n_cols, self.n_channels))
             # batch_y = np.zeros((number_of_elements_in_batch, self.n_classes))
@@ -124,11 +132,13 @@ class SimpleCNN(BaseModel):
                 file = x_y_train[i][0]
                 y_val = x_y_train[i][1]
 
-                # logger.info("i: {0} index: {1} Adding {2} file to batch.".format(i, index, file))
-                # logger.info("y_val: {0}".format(y_val))
-
                 #x = np.load(file).reshape((self.n_rows, self.n_cols, self.n_channels))
                 x = np.load(file)
+
+                #logger.info("i: {0} index: {1} Adding {2} file to batch.".format(i, index, file))
+                #logger.info("y_val: {0}".format(y_val))
+                #logger.info("x shape: {0}".format(x.shape))
+
                 bn, _, _ = x.shape
                 x = x.reshape((bn, self.n_rows, self.n_cols, self.n_channels))
 
@@ -165,7 +175,7 @@ class SimpleCNN(BaseModel):
 
             # time.sleep(10)
 
-            # logger.info("batch_x: {0} batch_y: {1}".format(len(batch_x),len(batch_y)))
+            #logger.info("batch_x: {0} batch_y: {1}".format(batch_x.shape, batch_y.shape))
 
             yield batch_x[1:, :, :, :], batch_y[1:, :]
 
@@ -224,7 +234,7 @@ class ComplexCNN(SimpleCNN):
         self.n_channels = n_channels
         self.n_classes = n_classes
 
-        logger.info("imput_shape: {0}".format(input_shape))
+        logger.info("input_shape: {0}".format(input_shape))
 
         self.inputs = Input(shape=(self.n_rows, self.n_cols, n_channels))
 

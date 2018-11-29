@@ -5,6 +5,7 @@ import math
 import csv
 import os
 import ast
+import time
 
 import ndjson
 import numpy as np
@@ -25,6 +26,43 @@ PADDING_SZIE = 6
 NPY_FILE_REXEXP = re.compile(r"train_data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+)_r_(?P<recognized>\d).npy")
 NPY_FILE_REXEXP_TEST = re.compile(r"test_data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+|)_r_(?P<recognized>\d).npy")
 
+QUICK_DRAW_LABELS =  ['stairs', 'castle', 'broccoli', 'sailboat', 'pig', 'zigzag', 'door', 'cake', 'camouflage', 'leg',
+                      'stereo', 'hockey_puck', 'axe', 'hat', 'swan', 'bathtub', 'potato', 'strawberry', 'umbrella', 'hand',
+                      'belt', 'panda', 'parrot', 'backpack', 'telephone', 'hedgehog', 'airplane', 'passport', 'fan', 'computer',
+                      'peanut', 'toothbrush', 'smiley_face', 'envelope', 'scissors', 'pencil', 'stove', 'waterslide', 'saxophone',
+                      'hurricane', 'toe', 'parachute', 'dragon', 'truck', 'squirrel', 'rhinoceros', 'bed', 'violin', 'school_bus',
+                      'angel', 'pond', 'bandage', 'pineapple', 'anvil', 'snail', 'star', 'rabbit', 'string_bean', 'mailbox',
+                      'traffic_light', 'lobster', 'teddy-bear', 'firetruck', 'bee', 'broom', 'snake', 'ocean', 'sink', 'ant',
+                      'light_bulb', 'blackberry', 'flip_flops', 'skateboard', 'saw', 'nail', 'purse', 'tractor', 'couch', 'bread',
+                      'floor_lamp', 'flying_saucer', 'donut', 'bucket', 'asparagus', 'jacket', 'steak', 'tiger', 'car', 'mug',
+                      'fire_hydrant', 'alarm_clock', 'mouse', 'cannon', 'finger', 't-shirt', 'house_plant', 'table', 'chandelier',
+                      'elephant', 'campfire', 'map', 'pool', 'duck', 'pear', 'shark', 'windmill', 'octopus', 'toothpaste', 'hospital',
+                      'fork', 'sandwich', 'vase', 'feather', 'nose', 'bird', 'raccoon', 'tree', 'octagon', 'mosquito', 'binoculars',
+                      'sweater', 'carrot', 'police_car', 'crown', 'harp', 'The_Great_Wall_of_China', 'church', 'cup', 'hamburger',
+                      'wheel', 'dresser', 'cloud', 'bicycle', 'crocodile', 'snowflake', 'barn', 'lightning', 'animal_migration',
+                      'suitcase', 'onion', 'horse', 'headphones', 'lantern', 'shoe', 'roller_coaster', 'motorbike', 'necklace',
+                      'stop_sign', 'cactus', 'bridge', 'toilet', 'zebra', 'cruise_ship', 'sleeping_bag', 'house', 'pillow',
+                      'square', 'sun', 'calculator', 'lipstick', 'face', 'paint_can', 'radio', 'grapes', 'van', 'key',
+                      'paintbrush', 'microwave', 'monkey', 'birthday_cake', 'bear', 'ceiling_fan', 'goatee', 'drill',
+                      'clarinet', 'diving_board', 'foot', 'speedboat', 'rake', 'flamingo', 'The_Mona_Lisa', 'shorts',
+                      'tennis_racquet', 'rainbow', 'diamond', 'wine_glass', 'baseball', 'camel', 'mermaid', 'sea_turtle',
+                      'palm_tree', 'cooler', 'garden', 'stethoscope', 'grass', 'paper_clip', 'oven', 'screwdriver', 'see_saw',
+                      'streetlight', 'hourglass', 'frog', 'wristwatch', 'piano', 'cat', 'tornado', 'moon', 'remote_control', 'trombone',
+                      'fish', 'basket', 'train', 'bench', 'cello', 'The_Eiffel_Tower', 'chair', 'pickup_truck', 'lighthouse', 'beard',
+                      'dishwasher', 'knee', 'flower', 'picture_frame', 'bottlecap', 'boomerang', 'fireplace', 'skyscraper', 'stitches',
+                      'laptop', 'giraffe', 'guitar', 'spreadsheet', 'sheep', 'bus', 'yoga', 'line', 'hot_dog', 'circle', 'ladder',
+                      'dolphin', 'bat', 'skull', 'hammer', 'shovel', 'hockey_stick', 'bracelet', 'trumpet', 'hexagon', 'ambulance',
+                      'baseball_bat', 'postcard', 'leaf', 'brain', 'scorpion', 'helmet', 'rain', 'clock', 'butterfly', 'tooth',
+                      'pliers', 'mushroom', 'marker', 'ice_cream', 'fence', 'cookie', 'owl', 'garden_hose', 'banana', 'calendar',
+                      'crab', 'washing_machine', 'jail', 'camera', 'lollipop', 'cell_phone', 'flashlight', 'frying_pan', 'basketball',
+                      'snorkel', 'compass', 'apple', 'cow', 'microphone', 'swing_set', 'mountain', 'peas', 'ear', 'soccer_ball', 'mouth',
+                      'eye', 'snowman', 'beach', 'megaphone', 'drums', 'book', 'pizza', 'elbow', 'lion', 'moustache', 'crayon',
+                      'tent', 'eraser', 'keyboard', 'candle', 'bush', 'blueberry', 'penguin', 'rollerskates', 'kangaroo', 'matches',
+                      'squiggle', 'television', 'power_outlet', 'triangle', 'teapot', 'popsicle', 'sock', 'coffee_cup', 'underwear',
+                      'eyeglasses', 'helicopter', 'wine_bottle', 'spoon', 'arm', 'river', 'spider', 'submarine', 'hot_tub', 'dumbbell',
+                      'hot_air_balloon', 'bulldozer', 'sword', 'dog', 'bowtie', 'watermelon', 'toaster', 'pants', 'golf_club', 'whale', 'canoe']
+
+
 
 random.seed(MAIN_SEED)
 
@@ -41,16 +79,28 @@ def get_data_files(file_type="ndjson"):
     return data_files, number_of_classes
 
 def get_numpy_drawings_list(reduced_set=None,
-                            data_type="train"):
-    if data_type == "train":
-        numpy_drawings_list = glob.glob("train_data/*.npy")
-    else:
-        numpy_drawings_list = glob.glob("test_data/*.npy")
+                            data_type="train",
+                            class_list=None):
 
-    if reduced_set is not None:
-        numpy_drawings_list = numpy_drawings_list[1:reduced_set]
+    numpy_drawings_list = []
+
+    nl = len(QUICK_DRAW_LABELS)
+    logger.info("Number of QUICK_DRAW_LABELS: {0}".format(nl))
+    for i in range(nl):
+
+        l = QUICK_DRAW_LABELS[i]
+        if data_type == "train":
+            class_numpy_drawings_list = glob.glob("train_data/class_{0}_{1}x{1}*.npy".format(l, REDUCED_DATA_IMAGE_SIZE))
+        else:
+            class_numpy_drawings_list = glob.glob("test_data/class_{0}_{1}x{1}*.npy".format(l, REDUCED_DATA_IMAGE_SIZE))
+
+        if reduced_set is not None:
+            class_numpy_drawings_list = class_numpy_drawings_list[0:reduced_set]
+
+        numpy_drawings_list = numpy_drawings_list + class_numpy_drawings_list
 
     return numpy_drawings_list
+
 
 
 def get_line(start, end):
@@ -140,7 +190,6 @@ def convert_list_image_to_numpy_array(ndjson_drawing):
 
 def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
                                                                drawings_per_file,
-                                                               processed_files_file,
                                                                N_DRAWINGS_PER_ARRAY,
                                                                data_type="train"):
 
@@ -188,8 +237,8 @@ def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
     last_chunk_empty = True
 
     for i in range(drawings_per_file):
-        #if i % 10000 == 0:
-        logger.info("Processing: {0}/{1}".format(i, n_drawings))
+        if i % 10000 == 0:
+            logger.info("Processing: {0}/{1}".format(i, n_drawings))
 
         if file_extension == ".ndjson":
             current_drawing = data[i]["drawing"]
@@ -264,7 +313,7 @@ def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
                                                                                                 REDUCED_DATA_IMAGE_SIZE,
                                                                                                 REDUCED_DATA_IMAGE_SIZE,
                                                                                                 str(i_index).zfill(PADDING_SZIE))
-            np.save(np_drawinf_array_filename, np_drawing_array[1:, :, :])
+            np.save(np_drawinf_array_filename, np_drawing_array)
             a_index = 0
             i_index = i_index + 1
 
@@ -285,8 +334,6 @@ def convert_images_from_ndjson_file_into_numpy_arrays_and_save(data_file,
                                                                                              str(i_index).zfill(PADDING_SZIE))
          np.save(np_drawinf_array_filename, np_drawing_array[1:, :, :])
 
-    if data_type == "train":
-    	processed_files_file.write(data_file + "\n")
 
 def convert_ndjson_simplified_data_into_numpy_arrays(ndjson_csv_file_list,
                                                      drawings_per_file=100,
@@ -294,21 +341,25 @@ def convert_ndjson_simplified_data_into_numpy_arrays(ndjson_csv_file_list,
 
     n_files = len(ndjson_csv_file_list)
 
-    processed_files_file = open("processed_train_data_{0}x{1}.txt".format(REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE), "w")
     for i in range(n_files):
+
+        start = time.time()
         logger.info("File number: {0}".format(i))
 
         convert_images_from_ndjson_file_into_numpy_arrays_and_save(ndjson_csv_file_list[i],
                                                                    drawings_per_file,
-                                                                   processed_files_file,
                                                                    N_DRAWINGS_PER_ARRAY)
-    processed_files_file.close()
+
+        end = time.time()
+        logger.info("Elapsed time: {0} s\n".format(end - start))
+
 
 def get_labels(numpy_drawings_list):
 
     n = len(numpy_drawings_list)
 
     count_labels = {}
+    labels_set = set()
     labels = [None for i in range(n)]
     for i in range(n):
             rm = NPY_FILE_REXEXP.match(numpy_drawings_list[i])
@@ -316,16 +367,23 @@ def get_labels(numpy_drawings_list):
 
             l = rm.group("drawing_name")
             labels[i] = l
+            labels_set.add(l)
 
             if l in count_labels:
                 count_labels[l] = count_labels[l] + 1
             else:
-                count_labels[l] = 0
+                count_labels[l] = 1
 
     logger.info("---   Histogram of labels   ---")
+    logger.info("Number of labels in histogram: {0}".format(len(count_labels)))
     for key, value in sorted(count_labels.items()):
         logger.info("{0:10s}: {1}".format(key, value))
     logger.info("---   -------------------   ---")
+    logger.info("Number of labels in set: {0}".format(len(labels_set)))
+    logger.info(labels_set)
+    logger.info("---   -------------------   ---")
+
+    logger.info("My labels size: {0}".format(len(labels)))
 
     return labels
 
@@ -346,12 +404,14 @@ def split_the_numpy_drawings_into_test_train_evaluate_datasets(reduced_set=None,
     for i in range(len(labels)):
         logger.debug("{0}  -  {1}".format(numpy_drawings_list[i], labels[i]))
 
+
+    # logger.info("Our labels: {0}".format(labels))
+
     le = LabelEncoder()
-    le.fit_transform(labels)
+    le.fit_transform(QUICK_DRAW_LABELS)
 
-    #logger.debug(le.transform(["axe", "bat", "baseball_bat"]))
-
-    #logger.debug(labels)
+    logger.info("Checking the labels mapping")
+    logger.info(le.transform(["axe", "bat", "baseball_bat"]))
 
     labels = le.transform(labels)
     logger.debug(labels)

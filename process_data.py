@@ -11,10 +11,9 @@ if __name__ == "__main__":
 
     # Open each ndjson file, convert the drawings in it into numpy arrays
     # and save them a *.npy files for further processing.
-    sf.convert_ndjson_simplified_data_into_numpy_arrays(ndjson_file_list, 102, 10)
+    sf.convert_ndjson_simplified_data_into_numpy_arrays(ndjson_file_list, None, 1000)
     #
     # sf.convert_images_from_ndjson_file_into_numpy_arrays_and_save("test_simplified.csv",
     #                                                                None,
-	# 					 		                                   None,
     #                                                                -1
     #                                                                data_type="test")
