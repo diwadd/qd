@@ -9,7 +9,7 @@ import time
 
 import ndjson
 import numpy as np
-import cv2 as cv
+import cv2
 import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import LabelEncoder
@@ -19,64 +19,159 @@ from custom_logger import logger
 
 MAIN_SEED = 0
 SIMPLIFIED_DATA_IMAGE_SIZE = 256
-REDUCED_DATA_IMAGE_SIZE = 28
-NUMBER_IMAGE_OF_CHANNELS = 1
+REDUCED_DATA_IMAGE_SIZE = 128
+NUMBER_IMAGE_OF_CHANNELS = 4
 PADDING_SZIE = 6
 
 NPY_FILE_REXEXP = re.compile(r"train_data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+)_r_(?P<recognized>\d).npy")
 NPY_FILE_REXEXP_TEST = re.compile(r"test_data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+|)_r_(?P<recognized>\d).npy")
 
-QUICK_DRAW_LABELS =  ['stairs', 'castle', 'broccoli', 'sailboat', 'pig', 'zigzag', 'door', 'cake', 'camouflage', 'leg',
-                      'stereo', 'hockey_puck', 'axe', 'hat', 'swan', 'bathtub', 'potato', 'strawberry', 'umbrella', 'hand',
-                      'belt', 'panda', 'parrot', 'backpack', 'telephone', 'hedgehog', 'airplane', 'passport', 'fan', 'computer',
-                      'peanut', 'toothbrush', 'smiley_face', 'envelope', 'scissors', 'pencil', 'stove', 'waterslide', 'saxophone',
-                      'hurricane', 'toe', 'parachute', 'dragon', 'truck', 'squirrel', 'rhinoceros', 'bed', 'violin', 'school_bus',
-                      'angel', 'pond', 'bandage', 'pineapple', 'anvil', 'snail', 'star', 'rabbit', 'string_bean', 'mailbox',
-                      'traffic_light', 'lobster', 'teddy-bear', 'firetruck', 'bee', 'broom', 'snake', 'ocean', 'sink', 'ant',
-                      'light_bulb', 'blackberry', 'flip_flops', 'skateboard', 'saw', 'nail', 'purse', 'tractor', 'couch', 'bread',
-                      'floor_lamp', 'flying_saucer', 'donut', 'bucket', 'asparagus', 'jacket', 'steak', 'tiger', 'car', 'mug',
-                      'fire_hydrant', 'alarm_clock', 'mouse', 'cannon', 'finger', 't-shirt', 'house_plant', 'table', 'chandelier',
-                      'elephant', 'campfire', 'map', 'pool', 'duck', 'pear', 'shark', 'windmill', 'octopus', 'toothpaste', 'hospital',
-                      'fork', 'sandwich', 'vase', 'feather', 'nose', 'bird', 'raccoon', 'tree', 'octagon', 'mosquito', 'binoculars',
-                      'sweater', 'carrot', 'police_car', 'crown', 'harp', 'The_Great_Wall_of_China', 'church', 'cup', 'hamburger',
-                      'wheel', 'dresser', 'cloud', 'bicycle', 'crocodile', 'snowflake', 'barn', 'lightning', 'animal_migration',
-                      'suitcase', 'onion', 'horse', 'headphones', 'lantern', 'shoe', 'roller_coaster', 'motorbike', 'necklace',
-                      'stop_sign', 'cactus', 'bridge', 'toilet', 'zebra', 'cruise_ship', 'sleeping_bag', 'house', 'pillow',
-                      'square', 'sun', 'calculator', 'lipstick', 'face', 'paint_can', 'radio', 'grapes', 'van', 'key',
-                      'paintbrush', 'microwave', 'monkey', 'birthday_cake', 'bear', 'ceiling_fan', 'goatee', 'drill',
-                      'clarinet', 'diving_board', 'foot', 'speedboat', 'rake', 'flamingo', 'The_Mona_Lisa', 'shorts',
-                      'tennis_racquet', 'rainbow', 'diamond', 'wine_glass', 'baseball', 'camel', 'mermaid', 'sea_turtle',
-                      'palm_tree', 'cooler', 'garden', 'stethoscope', 'grass', 'paper_clip', 'oven', 'screwdriver', 'see_saw',
-                      'streetlight', 'hourglass', 'frog', 'wristwatch', 'piano', 'cat', 'tornado', 'moon', 'remote_control', 'trombone',
-                      'fish', 'basket', 'train', 'bench', 'cello', 'The_Eiffel_Tower', 'chair', 'pickup_truck', 'lighthouse', 'beard',
-                      'dishwasher', 'knee', 'flower', 'picture_frame', 'bottlecap', 'boomerang', 'fireplace', 'skyscraper', 'stitches',
-                      'laptop', 'giraffe', 'guitar', 'spreadsheet', 'sheep', 'bus', 'yoga', 'line', 'hot_dog', 'circle', 'ladder',
-                      'dolphin', 'bat', 'skull', 'hammer', 'shovel', 'hockey_stick', 'bracelet', 'trumpet', 'hexagon', 'ambulance',
-                      'baseball_bat', 'postcard', 'leaf', 'brain', 'scorpion', 'helmet', 'rain', 'clock', 'butterfly', 'tooth',
-                      'pliers', 'mushroom', 'marker', 'ice_cream', 'fence', 'cookie', 'owl', 'garden_hose', 'banana', 'calendar',
-                      'crab', 'washing_machine', 'jail', 'camera', 'lollipop', 'cell_phone', 'flashlight', 'frying_pan', 'basketball',
-                      'snorkel', 'compass', 'apple', 'cow', 'microphone', 'swing_set', 'mountain', 'peas', 'ear', 'soccer_ball', 'mouth',
-                      'eye', 'snowman', 'beach', 'megaphone', 'drums', 'book', 'pizza', 'elbow', 'lion', 'moustache', 'crayon',
-                      'tent', 'eraser', 'keyboard', 'candle', 'bush', 'blueberry', 'penguin', 'rollerskates', 'kangaroo', 'matches',
-                      'squiggle', 'television', 'power_outlet', 'triangle', 'teapot', 'popsicle', 'sock', 'coffee_cup', 'underwear',
-                      'eyeglasses', 'helicopter', 'wine_bottle', 'spoon', 'arm', 'river', 'spider', 'submarine', 'hot_tub', 'dumbbell',
-                      'hot_air_balloon', 'bulldozer', 'sword', 'dog', 'bowtie', 'watermelon', 'toaster', 'pants', 'golf_club', 'whale', 'canoe']
-
-
+BASE_COLOR = "green"
+PROTEIN_COLORS = ["green", "blue", "red", "yellow"]
 
 random.seed(MAIN_SEED)
 
 
-def get_data_files(file_type="ndjson"):
+def get_data_files(file_type="ndjson",
+                   data_type="train",
+                   color="green"):
 
-    if file_type == "ndjson":
-        data_files = glob.glob("data/*ndjson")
-    elif file_type == "csv":
-        data_files = glob.glob("data/*csv")
+    search_string = "../{0}/*_{1}.{2}".format(data_type, color, file_type)
+
+    logger.info("Looking for {0}".format(search_string))
+    data_files = glob.glob(search_string)
+
+    return data_files
+
+
+def get_data_point_ids_and_labels(ids_labels_file):
+
+    with open(ids_labels_file) as f:
+        reader = csv.reader(f)
+        ids_labels = list(reader)
+
+    return ids_labels[1:]
+
+
+def convert_ids_labels_into_dict(ids_labels):
+
+    ids_labels_dict = {}
+    n = len(ids_labels)
+    for i in range(n):
+
+        id = ids_labels[i][0]
+        label = ids_labels[i][1]
+
+        label = list(map(int, label.split()))
+
+        if id not in ids_labels_dict:
+            ids_labels_dict[id] = label
+        else:
+            assert False, "Duplicate id! Somethings wrong with the input!"
+
+    return ids_labels_dict
+
+
+def check_that_all_other_colors_exist(data_file):
+
+    for c in PROTEIN_COLORS:
+        # This loop is always redundant over one of the colors.
+        ocf = data_file.replace(BASE_COLOR, c)
+
+        logger.debug("File exists: {0}".format(ocf))
+        assert os.path.isfile(ocf), "File {0} does not exist".format(ocf)
+
+
+def generate_four_files(data_file,
+                        four_files):
+
+    logger.debug("Generating four files.")
+    n = len(PROTEIN_COLORS)
+    for i in range(n):
+        ocf = data_file.replace(BASE_COLOR, PROTEIN_COLORS[i])
+        four_files[i] = ocf
+
+
+def load_single_image(image_path):
+    img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+
+    # logger.info("Image shape: {0}".format(img.shape))
+    img = cv2.resize(img,
+                     (REDUCED_DATA_IMAGE_SIZE, REDUCED_DATA_IMAGE_SIZE),
+                     interpolation=cv2.INTER_AREA)
+
+    return img
+
+
+def pack_images_into_one_npy_array(four_files):
+
+    n = len(four_files)
+
+    four_channel_img = np.zeros((REDUCED_DATA_IMAGE_SIZE,
+                                 REDUCED_DATA_IMAGE_SIZE,
+                                 NUMBER_IMAGE_OF_CHANNELS))
+    for i in range(n):
+        img = load_single_image(four_files[i])
+
+        four_channel_img[:, :, i] = img
+
+    return four_channel_img
+
+
+def pack_images_into_npy_array(data_files, ids_labels_dict=None):
+
+    if ids_labels_dict is not None:
+        data_type = "train"
     else:
-        assert False, "Wrong type!"
-    number_of_classes = len(data_files)
-    return data_files, number_of_classes
+        data_type = "test"
+
+    n = len(data_files)
+
+    for i in range(n):
+        if i % 10 == 0:
+            logger.info("We are at: {0}/{1}".format(i, n))
+
+        df = data_files[i]
+
+        logger.debug("--- --- ---")
+        check_that_all_other_colors_exist(df)
+
+        four_files = ["", "", "", ""]
+        generate_four_files(df, four_files)
+
+        logger.debug("The four generated files:")
+        for f in four_files:
+            logger.debug(f)
+
+        four_channel_img = pack_images_into_one_npy_array(four_files)
+        logger.debug("Shape of four_channel_img: {0}".format(four_channel_img.shape))
+
+        # Get id
+        rc = re.compile(r"../{0}/(?P<id>.*)_(blue|red|yellow|green).png".format(data_type))
+        rm = rc.match(four_files[0])
+
+        assert rm, "Regexp not matched in function: pack_images_into_npy_array!"
+
+        id = rm.group("id")
+
+        if ids_labels_dict is not None:
+
+            label = list(map(str, ids_labels_dict[id]))
+            label = "_".join(label)
+        else:
+            label = "None"
+
+        logger.debug("Label: {0}".format(label))
+        npy_file_name = "../{0}_data/img_{1}_s_{2}x{2}_label_{3}.npy".format(data_type,
+                                                                             id,
+                                                                             REDUCED_DATA_IMAGE_SIZE,
+                                                                             label)
+
+        logger.debug("npy file name: {0}".format(npy_file_name))
+        np.save(npy_file_name, four_channel_img)
+
+
+
 
 def get_numpy_drawings_list(reduced_set=None,
                             data_type="train",
