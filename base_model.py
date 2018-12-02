@@ -77,11 +77,11 @@ class SimpleCNN(BaseModel):
         x = Flatten()(x)
         x = Dense(128, activation='relu')(x)
         x = Dropout(0.5)(x)
-        self.outputs = Dense(n_classes, activation='softmax')(x)
+        self.outputs = Dense(n_classes, activation='sigmoid')(x)
 
         self.model = Model(inputs=[self.inputs], outputs=[self.outputs])
 
-        self.model.compile(loss=keras.losses.categorical_crossentropy,
+        self.model.compile(loss=keras.losses.binary_crossentropy,
                            optimizer=keras.optimizers.Adadelta(),
                            metrics=['accuracy'])
 

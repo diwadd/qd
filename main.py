@@ -19,12 +19,28 @@ if __name__ == "__main__":
     ids_labels = sf.get_data_point_ids_and_labels("../train.csv")
     ids_labels_dict = sf.convert_ids_labels_into_dict(ids_labels)
 
-    sf.pack_images_into_npy_array(train_data_files, ids_labels_dict)
+    noitp = None
+
+    # Train data
+    # sf.pack_images_into_npy_array(train_data_files, ids_labels_dict, number_of_images_to_pack=noitp)
 
     test_data_files = sf.get_data_files(file_type="png", data_type="test", color="green")
 
-    logger.info(test_data_files)
-    sf.pack_images_into_npy_array(test_data_files, None)
+    # Test data
+    # sf.pack_images_into_npy_array(test_data_files, None, number_of_images_to_pack=noitp)
+
+    sf.reading_speed("npy")
+    sf.reading_speed("npz")
+    sf.reading_speed("h5")
+
+    # sn = SimpleCNN(input_shape=(sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE), n_classes=sf.NUMBER_OF_CLASSES)
+    # sn = ComplexCNN(input_shape=(sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE), n_classes=number_of_classes)
+
+
+
+
+
+
 
 
     # ndjson_file_list, number_of_classes = sf.get_data_files(file_type="csv")
@@ -32,8 +48,7 @@ if __name__ == "__main__":
     #
     # npy_drawing_files = sf.get_numpy_drawings_list(reduced_set=None)
     #
-    # # sn = SimpleCNN(input_shape=(sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE), n_classes=number_of_classes)
-    # sn = ComplexCNN(input_shape=(sf.REDUCED_DATA_IMAGE_SIZE, sf.REDUCED_DATA_IMAGE_SIZE), n_classes=number_of_classes)
+
     #
     # x_train_file_list, y_train_labels_list, x_test_file_list, y_test_labels_list, le = sf.split_the_numpy_drawings_into_test_train_evaluate_datasets(reduced_set=5)
     #

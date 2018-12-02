@@ -10,6 +10,7 @@ import time
 import ndjson
 import numpy as np
 import cv2
+import h5py
 import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import LabelEncoder
@@ -22,6 +23,7 @@ SIMPLIFIED_DATA_IMAGE_SIZE = 256
 REDUCED_DATA_IMAGE_SIZE = 128
 NUMBER_IMAGE_OF_CHANNELS = 4
 PADDING_SZIE = 6
+NUMBER_OF_CLASSES = 28
 
 NPY_FILE_REXEXP = re.compile(r"train_data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+)_r_(?P<recognized>\d).npy")
 NPY_FILE_REXEXP_TEST = re.compile(r"test_data/class_(?P<drawing_name>.*)_\d+x\d+_id_(?P<key_id>\d+)_(?P<countrycode>\D+|)_r_(?P<recognized>\d).npy")
@@ -62,7 +64,12 @@ def convert_ids_labels_into_dict(ids_labels):
         id = ids_labels[i][0]
         label = ids_labels[i][1]
 
-        label = list(map(int, label.split()))
+        label_ints = list(map(int, label.split()))
+
+        label = [0 for i in range(NUMBER_OF_CLASSES)]
+
+        for j in range(len(label_ints)):
+            label[label_ints[j]] = 1
 
         if id not in ids_labels_dict:
             ids_labels_dict[id] = label
@@ -118,7 +125,18 @@ def pack_images_into_one_npy_array(four_files):
     return four_channel_img
 
 
-def pack_images_into_npy_array(data_files, ids_labels_dict=None):
+def save_h5_data(file_name,
+                 data,
+                 label):
+
+    with h5py.File(file_name, "w") as hf:
+        ds = hf.create_dataset("four_channel_img", data=data)
+        ds.attrs["label"] = label
+
+
+def pack_images_into_npy_array(data_files,
+                               ids_labels_dict=None,
+                               number_of_images_to_pack=None):
 
     if ids_labels_dict is not None:
         data_type = "train"
@@ -126,6 +144,10 @@ def pack_images_into_npy_array(data_files, ids_labels_dict=None):
         data_type = "test"
 
     n = len(data_files)
+
+    if number_of_images_to_pack is not None:
+        assert number_of_images_to_pack < n, "Number of images {0} to pack cannot be greater then n = {1}".format(number_of_images_to_pack, n)
+        n = number_of_images_to_pack
 
     for i in range(n):
         if i % 10 == 0:
@@ -156,19 +178,72 @@ def pack_images_into_npy_array(data_files, ids_labels_dict=None):
 
         if ids_labels_dict is not None:
 
-            label = list(map(str, ids_labels_dict[id]))
-            label = "_".join(label)
+            label_as_list = np.array(ids_labels_dict[id])
+            label_text = list(map(int, ids_labels_dict[id]))
+            label_text = list(map(str, ids_labels_dict[id]))
+            label_text = "_".join(label_text)
         else:
-            label = "None"
+            # We save in h5 and None is not recognised by it so we need a string.
+            label_as_list = "None"
+            label_text = "None"
 
-        logger.debug("Label: {0}".format(label))
-        npy_file_name = "../{0}_data/img_{1}_s_{2}x{2}_label_{3}.npy".format(data_type,
-                                                                             id,
-                                                                             REDUCED_DATA_IMAGE_SIZE,
-                                                                             label)
+        logger.debug("Label: {0}".format(label_text))
+        out_file_name = "../{0}_data/img_{1}_s_{2}x{2}_label_{3}.".format(data_type,
+                                                                          id,
+                                                                          REDUCED_DATA_IMAGE_SIZE,
+                                                                          label_text)
 
-        logger.debug("npy file name: {0}".format(npy_file_name))
-        np.save(npy_file_name, four_channel_img)
+        logger.debug("out file name: {0}".format(out_file_name))
+
+        np.save(out_file_name + "npy", four_channel_img)
+
+        np.savez(out_file_name + "npz", four_channel_img=four_channel_img, label=label_as_list)
+
+        save_h5_data(out_file_name + "h5", data=four_channel_img, label=label_as_list)
+
+
+def train_file_name_to_label(file_name):
+    rc = re.compile(r"../train_data/img_.*_s_\d+x\d+_label_(?P<label>.*).npy")
+    rm = rc.match(file_name)
+    label = list(map(int, rm.group("label").split("_")))
+
+    return label
+
+
+def reading_speed(file_extension):
+
+    file_list = glob.glob("../train_data/*." + file_extension)
+    n = len(file_list)
+
+    start = time.time()
+    for i in range(n):
+
+        if file_extension == "npz":
+            d = np.load(file_list[i])
+            four_channel_img = d["four_channel_img"]
+            label = d["label"]
+
+        elif file_extension == "h5":
+            h5f = h5py.File(file_list[i],"r")
+            four_channel_img = h5f["four_channel_img"][:, :, :]
+            label = h5f["four_channel_img"].attrs["label"]
+        elif file_extension == "npy":
+            label = train_file_name_to_label(file_list[i])
+            four_channel_img = np.load(file_list[i])
+        else:
+            assert False, "Wrong file extension!"
+
+    stop = time.time()
+
+    logger.info("Reading time of {0}: {1}".format(file_extension, stop - start))
+
+
+
+def prepare_train_and_test_data_sets():
+
+    packed_npy_files = glob.glob("../train_data/*.npy")
+
+    
 
 
 
